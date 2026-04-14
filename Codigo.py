@@ -1300,7 +1300,6 @@ tbody tr.podio-bronce td:first-child::before {{
      f"<tr class='podio-bronce'>" if idx == 2 else
      "<tr>") +
     "".join(
-        # Aqui eliminamos el numero en las 3 primeras posiciones (se reemplaza por marcador CSS)
         f"<td></td>" if (idx in [0,1,2] and i == 0) else
         f"<td class='total'>{html_escape(cell)}</td>" if i == len(row)-1 else
         f"<td class='nombre'>{html_escape(cell)}</td>" if i == 1 else
