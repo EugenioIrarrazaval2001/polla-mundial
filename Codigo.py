@@ -1196,10 +1196,16 @@ tbody tr.podio-bronce td:first-child::before {{
     font-weight: 700;
 }}
 
-.detalle-table td.num,
-.detalle-table th.num {{
+.detalle-table td.num {{
     text-align: center;
     white-space: nowrap;
+}}
+
+.detalle-table th.num {{
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    word-break: break-word;
 }}
 
 .pts-pos {{
