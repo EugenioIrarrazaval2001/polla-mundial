@@ -4,6 +4,7 @@ import json
 import sys
 from openpyxl import load_workbook
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # ============================================================
 # CONFIG
@@ -490,7 +491,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       max_por_etapa, max_bonus, max_total, out_path,
                       detalle_payload):
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
     titulo_competencia = html_escape(nombre_competencia)
     detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
 
