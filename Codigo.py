@@ -1,8 +1,8 @@
 ﻿import os
 import re
 import json
+import sys
 from openpyxl import load_workbook
-import webbrowser
 from datetime import datetime
 
 # ============================================================
@@ -10,6 +10,9 @@ from datetime import datetime
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CARPETA = BASE_DIR
+
+OUTPUT_DIR = os.path.join(BASE_DIR, "site")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CELDA_INICIAL_RESULTADO = "B4"   # donde parte el partido 1
 COL_MODO = "D"                   # en eliminatorias, el "cómo pasa" está en C4, C8, C12...
@@ -1426,7 +1429,7 @@ def main():
         ) = cargar_pautas_desde_excel(carpeta_pauta)
     except Exception as e:
         print(f"ERROR cargando pautas desde carpeta 'pauta': {e}")
-        return
+        sys.exit(1)
 
     print(f"Pautas cargadas desde: {carpeta_pauta}")
     for etapa in sorted(fuentes_pauta.keys(), key=clave_orden_etapa):
@@ -1447,7 +1450,7 @@ def main():
         carpeta_participantes = resolver_carpeta_participantes(CARPETA)
     except Exception as e:
         print(f"ERROR cargando carpeta de participantes: {e}")
-        return
+        sys.exit(1)
 
     registros, avisos_pronostico, etapas_vacias = cargar_archivos_pronostico(carpeta_participantes)
 
@@ -1465,7 +1468,7 @@ def main():
             "No encontré archivos de pronóstico válidos en la carpeta Participantes. "
             "Usa carpetas por etapa (ej: E01 o etapa 01) y archivos como Nombre.xlsx."
         )
-        return
+        sys.exit(1)
 
     procesados = set()
 
@@ -1644,7 +1647,7 @@ def main():
         },
     }
 
-    out_html = os.path.join(CARPETA, "index.html")
+    out_html = os.path.join(OUTPUT_DIR, "index.html")
     render_tabla_html(
         nombre_competencia="General",
         participantes=participantes_html,
@@ -1656,8 +1659,6 @@ def main():
         detalle_payload=payload_detalle
     )
 
-    # Abrir en el navegador automáticamente
-    webbrowser.open(f"file:///{out_html}")
 
 
 if __name__ == "__main__":
