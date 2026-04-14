@@ -1,0 +1,37 @@
+🏆 Bases Polla Mundialera
+
+1️⃣ Formato general
+La polla se juega mediante archivos Excel.
+Al terminar cada ronda, se envía el Excel de la siguiente etapa para completar.
+Se consideran 25 partidos seleccionados de la fase de grupo más las eliminatorias completas.
+
+2️⃣ Plazos
+Cada Excel debe enviarse antes de que comience el primer partido de la ronda siguiente.
+El pago de inscripción es hasta el inicio del primer partido de la fase de grupos. Valor: $3000
+
+3️⃣ Ranking
+El ranking se actualiza por etapas.
+
+4️⃣ Premio
+🥇 El ganador se lleva el 60% del pozo.
+🥈 El segundo se lleva el 30% del pozo.
+🥉 El tercero se lleva el 10% del pozo.
+
+5️⃣ Sistema de puntos
+1 punto por partido para la fase de grupos, 16avos y 8vos.
+2 puntos por partido para los 4tos y las Semifinales.
+3 puntos para la Final.
+1 punto extra por partido eliminatorio por acertar cómo pasa (90’, tiempo extra o penales).
+  Para sumarlo, es requisito haber acertado quién pasa.
+5 puntos bonus por acertar al campeón al comienzo del torneo.
+
+Puntajes máximo por ronda:
+Fase de grupos: 25  puntos
+16avos        : 32  puntos
+8vos          : 16  puntos
+4tos          : 12  puntos
+Semifinales   : 6   puntos
+Final         : 4   puntos
+Bonus Campeón : 5   puntos
+Total Máximo  : 100 puntos
+
