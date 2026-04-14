@@ -408,7 +408,8 @@ def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
         partidos = []
         total_etapa = 0
         for i, (a, r) in enumerate(zip(apuestas, pauta), start=1):
-            puntos_exactitud = 1 if normalizar_texto(a) == normalizar_texto(r) else 0
+            pauta_llena = normalizar_texto(r) != ""
+            puntos_exactitud = 1 if (pauta_llena and normalizar_texto(a) == normalizar_texto(r)) else 0
             puntos_signo = 0
             bonus = 0
             total_partido = puntos_exactitud
@@ -441,10 +442,14 @@ def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
         partidos = []
         total_etapa = 0
         for i, ((pasa, modo), (pasa_real, modo_real)) in enumerate(zip(apuestas, pauta), start=1):
-            acierta_pasa = normalizar_texto(pasa) == normalizar_texto(pasa_real)
+
+            pauta_pasa_llena = normalizar_texto(pasa_real) != ""
+            pauta_modo_llena = normalizar_texto(modo_real) != ""     
+            acierta_pasa = pauta_pasa_llena and (normalizar_texto(pasa) == normalizar_texto(pasa_real))
             puntos_exactitud = cfg["ppp"] if acierta_pasa else 0
             puntos_signo = 0
-            bonus = 1 if (acierta_pasa and normalizar_texto(modo) == normalizar_texto(modo_real)) else 0
+            bonus = 1 if (acierta_pasa and pauta_modo_llena and normalizar_texto(modo) == normalizar_texto(modo_real)) else 0
+            
             total_partido = puntos_exactitud + bonus
             total_etapa += total_partido
             if not acierta_pasa:
