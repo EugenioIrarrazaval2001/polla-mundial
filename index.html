@@ -229,6 +229,10 @@ tbody tr.podio-bronce td:first-child::before {
     box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
 }
 
+.detalle-wrap-sec {
+    margin-top: 18px;
+}
+
 .detalle-title {
     margin: 0 0 16px 0;
     text-align: left;
@@ -262,12 +266,9 @@ tbody tr.podio-bronce td:first-child::before {
     font-size: 15px;
 }
 
-.detalle-empty {
-    margin-top: 14px;
-    padding: 12px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--muted);
+.detalle-select:disabled {
+    opacity: 0.66;
+    cursor: not-allowed;
 }
 
 .detalle-summary {
@@ -392,25 +393,25 @@ tbody tr.podio-bronce td:first-child::before {
 <div class="wrap">
 <div class="hero">
 <h1 class="main-title">Polla Familia Riesco Eyzaguirre</h1>
-<div class="sub">Generado: 2026-03-20 19:38:36</div>
+<div class="sub">Generado: 2026-04-02 22:34:13</div>
 </div>
 
 <section class="podio-wrap" aria-label="Podio actual">
 <div class="podio-grid">
 <article class="podio-step podio-second">
 <div class="podio-num">2&deg;</div>
-<div class="podio-name">Papa</div>
-<div class="podio-points">30 puntos</div>
+<div class="podio-name">Mama</div>
+<div class="podio-points">0 puntos</div>
 </article>
 <article class="podio-step podio-first">
 <div class="podio-num">1&deg;</div>
 <div class="podio-name">Keno</div>
-<div class="podio-points">100 puntos</div>
+<div class="podio-points">0 puntos</div>
 </article>
 <article class="podio-step podio-third">
 <div class="podio-num">3&deg;</div>
-<div class="podio-name">Trini</div>
-<div class="podio-points">30 puntos</div>
+<div class="podio-name">Papa</div>
+<div class="podio-points">0 puntos</div>
 </article>
 </div>
 </section>
@@ -426,7 +427,7 @@ tbody tr.podio-bronce td:first-child::before {
 </thead>
 
 <tbody>
-<tr class='podio-oro'><td></td><td class='nombre'>Keno</td><td>25</td><td>32</td><td>16</td><td>12</td><td>6</td><td>4</td><td>5</td><td class='total'>100</td></tr><tr class='podio-plata'><td></td><td class='nombre'>Papa</td><td>25</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>5</td><td class='total'>30</td></tr><tr class='podio-bronce'><td></td><td class='nombre'>Trini</td><td>25</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>5</td><td class='total'>30</td></tr><tr><td>4</td><td class='nombre'>Toti</td><td>24</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>5</td><td class='total'>29</td></tr><tr><td>5</td><td class='nombre'>Mama</td><td>25</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>25</td></tr>
+<tr class='podio-oro'><td></td><td class='nombre'>Keno</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr class='podio-plata'><td></td><td class='nombre'>Mama</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr class='podio-bronce'><td></td><td class='nombre'>Papa</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>4</td><td class='nombre'>Toti</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>5</td><td class='nombre'>Trini</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr>
 </tbody>
 
 </table>
@@ -449,10 +450,6 @@ tbody tr.podio-bronce td:first-child::before {
     </div>
 </div>
 
-<div id="detalle-empty" class="detalle-empty">
-Selecciona un participante y una etapa para ver el detalle.
-</div>
-
 <div id="detalle-content" hidden>
     <div class="detalle-summary">
         <div class="detalle-card">
@@ -472,16 +469,7 @@ Selecciona un participante y una etapa para ver el detalle.
     <div class="detalle-table-wrap">
         <table class="detalle-table">
             <thead>
-                <tr>
-                    <th class="num">Partido</th>
-                    <th>Pronóstico participante</th>
-                    <th>Resultado real / pauta</th>
-                    <th class="num">Exactitud</th>
-                    <th class="num">Signo</th>
-                    <th class="num">Bonus</th>
-                    <th class="num">Total</th>
-                    <th>Desglose</th>
-                </tr>
+                <tr id="detalle-head-row"></tr>
             </thead>
             <tbody id="detalle-body"></tbody>
         </table>
@@ -489,8 +477,53 @@ Selecciona un participante y una etapa para ver el detalle.
 </div>
 </section>
 
+<section class="detalle-wrap detalle-wrap-sec" id="detalle2-section">
+<h2 class="detalle-title">Detalle por etapa y partido</h2>
 
-<script id="detalle-data" type="application/json">{"participants": [{"id": "KENO", "name": "Keno"}, {"id": "MAMA", "name": "Mama"}, {"id": "PAPA", "name": "Papa"}, {"id": "TOTI", "name": "Toti"}, {"id": "TRINI", "name": "Trini"}], "stages": [{"id": "E01", "label": "Etapa 01 — Fase de grupos"}, {"id": "E02", "label": "Etapa 02 — 16avos"}, {"id": "E03", "label": "Etapa 03 — Octavos"}, {"id": "E04", "label": "Etapa 04 — Cuartos"}, {"id": "E05", "label": "Etapa 05 — Semis"}, {"id": "E06", "label": "Etapa 06 — Final"}], "details": {"KENO": {"E01": {"total": 25, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 4, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 6, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 14, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 16, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 21, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}]}, "E02": {"total": 32, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "Pasa Perú | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "Pasa España | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "Pasa Francia | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "Pasa Brasil | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "Pasa Alemania | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "Pasa Inglaterra | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "Pasa Argentina | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "Pasa Portugal | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 9, "pronostico": "Pasa Países Bajos | En tiempo extra", "pauta": "Pasa Países Bajos | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 10, "pronostico": "Pasa Bélgica | En los 90", "pauta": "Pasa Bélgica | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 11, "pronostico": "Pasa Croacia | En penales", "pauta": "Pasa Croacia | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 12, "pronostico": "Pasa Uruguay | En los 90", "pauta": "Pasa Uruguay | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 13, "pronostico": "Pasa Colombia | En tiempo extra", "pauta": "Pasa Colombia | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 14, "pronostico": "Pasa Chile | En penales", "pauta": "Pasa Chile | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 15, "pronostico": "Pasa México | En los 90", "pauta": "Pasa México | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 16, "pronostico": "Pasa Japón | En tiempo extra", "pauta": "Pasa Japón | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}]}, "E03": {"total": 16, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "Pasa Perú | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "Pasa España | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "Pasa Francia | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "Pasa Brasil | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "Pasa Alemania | En tiempo extra", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "Pasa Inglaterra | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "Pasa Argentina | En penales", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "Pasa Portugal | En los 90", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 1, "total": 2, "desglose": "Acierta quién pasa (+1) y modo (+1)."}]}, "E04": {"total": 12, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "Pasa Perú | En tiempo extra", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "Pasa España | En los 90", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "Pasa Francia | En penales", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "Pasa Brasil | En los 90", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}]}, "E05": {"total": 6, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "Pasa Perú | En tiempo extra", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "Pasa España | En los 90", "puntos_exactitud": 2, "puntos_signo": 0, "bonus": 1, "total": 3, "desglose": "Acierta quién pasa (+2) y modo (+1)."}]}, "E06": {"total": 4, "partidos": [{"partido": 1, "pronostico": "Gana Perú | En los 90", "pauta": "Gana Perú | En los 90", "puntos_exactitud": 3, "puntos_signo": 0, "bonus": 1, "total": 4, "desglose": "Acierta quién pasa (+3) y modo (+1)."}]}}, "MAMA": {"E01": {"total": 25, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 4, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 6, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 14, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 16, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 21, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}]}}, "PAPA": {"E01": {"total": 25, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 4, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 6, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 14, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 16, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 21, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}]}}, "TOTI": {"E01": {"total": 24, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 4, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 6, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 14, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 16, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 21, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 25, "pronostico": "Gana Mexico", "pauta": "Gana Senegal", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TRINI": {"E01": {"total": 25, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 4, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 6, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "Gana Alemania", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "Gana España", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "Gana Rusia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 14, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "Gana EEUU", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 16, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 21, "pronostico": "Empate", "pauta": "Empate", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "Gana Japón", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "Gana Ghana", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "Gana Suecia", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "Gana Senegal", "puntos_exactitud": 1, "puntos_signo": 0, "bonus": 0, "total": 1, "desglose": "Acierta resultado (+1)."}]}}}}</script>
+<div class="detalle-controls">
+    <div class="detalle-field">
+        <label for="detalle2-etapa">Etapa</label>
+        <select id="detalle2-etapa" class="detalle-select">
+            <option value="">Selecciona una etapa</option>
+        </select>
+    </div>
+    <div class="detalle-field">
+        <label for="detalle2-partido">Partido</label>
+        <select id="detalle2-partido" class="detalle-select" disabled>
+            <option value="">Selecciona un partido</option>
+        </select>
+    </div>
+</div>
+
+<div id="detalle2-content" hidden>
+    <div class="detalle-summary">
+        <div class="detalle-card">
+            <div class="detalle-label">Etapa</div>
+            <div class="detalle-value" id="detalle2-resumen-etapa">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Partido</div>
+            <div class="detalle-value" id="detalle2-resumen-partido">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Resultado Real</div>
+            <div class="detalle-value" id="detalle2-resumen-resultado">-</div>
+        </div>
+    </div>
+
+    <div class="detalle-table-wrap">
+        <table class="detalle-table">
+            <thead>
+                <tr id="detalle2-head-row"></tr>
+            </thead>
+            <tbody id="detalle2-body"></tbody>
+        </table>
+    </div>
+</div>
+</section>
+
+
+<script id="detalle-data" type="application/json">{"participants": [{"id": "KENO", "name": "Keno"}, {"id": "MAMA", "name": "Mama"}, {"id": "PAPA", "name": "Papa"}, {"id": "TOTI", "name": "Toti"}, {"id": "TRINI", "name": "Trini"}], "stages": [{"id": "E01", "label": "Fase de grupos", "show_bonus": false}, {"id": "E02", "label": "16avos", "show_bonus": true}, {"id": "E03", "label": "Octavos", "show_bonus": true}, {"id": "E04", "label": "Cuartos", "show_bonus": true}, {"id": "E05", "label": "Semis", "show_bonus": true}, {"id": "E06", "label": "Final", "show_bonus": true}], "details": {"KENO": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana México", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Brasil", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Gana Australia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Gana Bélgica", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Francia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Argentina", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Inglaterra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana México", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Estados Unidos", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana Holanda", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Bélgica", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Gana Argentina", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana Noruega", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Gana Suiza", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Estados Unidos", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Paraguay", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Francia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Egipto", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Austria", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Portugal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}, "E02": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 9, "pronostico": "Pasa Países Bajos | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 10, "pronostico": "Pasa Bélgica | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 11, "pronostico": "Pasa Croacia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 12, "pronostico": "Pasa Uruguay | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 13, "pronostico": "Pasa Colombia | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 14, "pronostico": "Pasa Chile | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 15, "pronostico": "Pasa México | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 16, "pronostico": "Pasa Japón | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E03": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E04": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E05": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E06": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Perú | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}}, "MAMA": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "PAPA": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TOTI": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Mexico", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TRINI": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Rusia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana EEUU", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Ghana", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Suecia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Senegal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}}, "match_labels": {"E01": ["México vs Sudáfrica", "Estados Unidos vs Paraguay", "Brasil vs Marruecos", "Australia vs Turquía", "Holanda vs Japón", "Bélgica vs Egipto", "Francia vs Senegal", "Argentina vs Argelia", "Inglaterra vs Croacia", "México vs Corea", "Estados Unidos vs Australia", "Holanda vs Suecia", "Bélgica vs Irán", "Argentina vs Austria", "Noruega vs Senegal", "Suiza vs Canadá", "Ecuador vs Alemania", "Japón vs Suecia", "Turquía vs Estados Unidos", "Paraguay vs Australia", "Uruguay vs España", "Noruega vs Francia", "Egipto vs Irán", "Argelia vs Austria", "Colombia vs Portugal"], "E02": ["Partido 1", "Partido 2", "Partido 3", "Partido 4", "Partido 5", "Partido 6", "Partido 7", "Partido 8", "Partido 9", "Partido 10", "Partido 11", "Partido 12", "Partido 13", "Partido 14", "Partido 15", "Partido 16"], "E03": ["Partido 1", "Partido 2", "Partido 3", "Partido 4", "Partido 5", "Partido 6", "Partido 7", "Partido 8"], "E04": ["Partido 1", "Partido 2", "Partido 3", "Partido 4"], "E05": ["Partido 1", "Partido 2"], "E06": ["Partido 1"]}}</script>
 <script>
 (function () {
     var dataNode = document.getElementById("detalle-data");
@@ -507,15 +540,25 @@ Selecciona un participante y una etapa para ver el detalle.
     var participantes = payload.participants || [];
     var etapas = payload.stages || [];
     var detalles = payload.details || {};
+    var etiquetasPartidos = payload.match_labels || {};
 
     var participanteSel = document.getElementById("detalle-participante");
     var etapaSel = document.getElementById("detalle-etapa");
-    var emptyState = document.getElementById("detalle-empty");
     var content = document.getElementById("detalle-content");
     var resumenParticipante = document.getElementById("detalle-resumen-participante");
     var resumenEtapa = document.getElementById("detalle-resumen-etapa");
     var resumenTotal = document.getElementById("detalle-resumen-total");
+    var detalleHead = document.getElementById("detalle-head-row");
     var detalleBody = document.getElementById("detalle-body");
+
+    var detalle2EtapaSel = document.getElementById("detalle2-etapa");
+    var detalle2PartidoSel = document.getElementById("detalle2-partido");
+    var detalle2Content = document.getElementById("detalle2-content");
+    var detalle2ResumenEtapa = document.getElementById("detalle2-resumen-etapa");
+    var detalle2ResumenPartido = document.getElementById("detalle2-resumen-partido");
+    var detalle2ResumenResultado = document.getElementById("detalle2-resumen-resultado");
+    var detalle2Head = document.getElementById("detalle2-head-row");
+    var detalle2Body = document.getElementById("detalle2-body");
 
     function appendCell(tr, value, className) {
         var td = document.createElement("td");
@@ -524,57 +567,196 @@ Selecciona un participante y una etapa para ver el detalle.
         tr.appendChild(td);
     }
 
+    function clasePuntos(value) {
+        return "num " + (Number(value || 0) > 0 ? "pts-pos" : "pts-zero");
+    }
+
+    function resetSelect(selectNode, placeholder) {
+        if (!selectNode) return;
+        selectNode.innerHTML = "";
+        var option = document.createElement("option");
+        option.value = "";
+        option.textContent = placeholder;
+        selectNode.appendChild(option);
+    }
+
+    function renderHeaderDetalle(mostrarBonus) {
+        detalleHead.innerHTML = "";
+        var headers = [
+            { text: "Pronóstico participante", cls: "" },
+            { text: "Resultado Real", cls: "" },
+            { text: "Puntos por acertar resultado", cls: "num" }
+        ];
+
+        if (mostrarBonus) {
+            headers.push({ text: "Bonus por acertar modo", cls: "num" });
+        }
+        headers.push({ text: "Total", cls: "num" });
+
+        headers.forEach(function (h) {
+            var th = document.createElement("th");
+            if (h.cls) th.className = h.cls;
+            th.textContent = h.text;
+            detalleHead.appendChild(th);
+        });
+    }
+
+    function renderHeaderPartido(mostrarBonus) {
+        detalle2Head.innerHTML = "";
+        var headers = [
+            { text: "Participante", cls: "" },
+            { text: "Pronóstico participante", cls: "" },
+            { text: "Resultado Real", cls: "" },
+            { text: "Puntos por acertar resultado", cls: "num" }
+        ];
+
+        if (mostrarBonus) {
+            headers.push({ text: "Bonus por acertar modo", cls: "num" });
+        }
+        headers.push({ text: "Total partido", cls: "num" });
+
+        headers.forEach(function (h) {
+            var th = document.createElement("th");
+            if (h.cls) th.className = h.cls;
+            th.textContent = h.text;
+            detalle2Head.appendChild(th);
+        });
+    }
+
+    function renderSinDataDetalle(mostrarBonus, mensaje) {
+        detalleBody.innerHTML = "";
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = mostrarBonus ? 5 : 4;
+        td.textContent = mensaje;
+        tr.appendChild(td);
+        detalleBody.appendChild(tr);
+    }
+
+    function renderSinDataPartido(mostrarBonus, mensaje) {
+        detalle2Body.innerHTML = "";
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = mostrarBonus ? 6 : 5;
+        td.textContent = mensaje;
+        tr.appendChild(td);
+        detalle2Body.appendChild(tr);
+    }
+
+    function buscarEtapa(etapaId) {
+        return etapas.find(function (e) { return e.id === etapaId; }) || null;
+    }
+
+    function etiquetaPartido(etapaId, numeroPartido) {
+        var n = Number(numeroPartido);
+        if (isNaN(n) || n <= 0) {
+            return "";
+        }
+        var lista = etiquetasPartidos[etapaId];
+        if (Array.isArray(lista) && (n - 1) < lista.length) {
+            var etiqueta = String(lista[n - 1] || "").trim();
+            if (etiqueta) {
+                return etiqueta;
+            }
+        }
+        return "Partido " + String(n);
+    }
+
+    function partidosDisponiblesDeEtapa(etapaId) {
+        var partidos = {};
+        participantes.forEach(function (p) {
+            var detalleEtapa = (detalles[p.id] || {})[etapaId];
+            if (!detalleEtapa || !Array.isArray(detalleEtapa.partidos)) return;
+            detalleEtapa.partidos.forEach(function (partido) {
+                var numero = Number(partido.partido);
+                if (!isNaN(numero) && numero > 0) {
+                    partidos[numero] = true;
+                }
+            });
+        });
+
+        return Object.keys(partidos).map(function (x) { return Number(x); }).sort(function (a, b) { return a - b; });
+    }
+
+    function actualizarSelectorPartido() {
+        var etapaId = detalle2EtapaSel.value;
+        resetSelect(detalle2PartidoSel, "Selecciona un partido");
+
+        if (!etapaId) {
+            detalle2PartidoSel.disabled = true;
+            return;
+        }
+
+        var partidos = partidosDisponiblesDeEtapa(etapaId);
+        if (!partidos.length) {
+            var vacio = document.createElement("option");
+            vacio.value = "";
+            vacio.textContent = "Sin partidos disponibles";
+            detalle2PartidoSel.appendChild(vacio);
+            detalle2PartidoSel.disabled = true;
+            return;
+        }
+
+        partidos.forEach(function (numero) {
+            var option = document.createElement("option");
+            option.value = String(numero);
+            option.textContent = etiquetaPartido(etapaId, numero);
+            detalle2PartidoSel.appendChild(option);
+        });
+        detalle2PartidoSel.disabled = false;
+    }
+
     function llenarSelectores() {
         participantes.forEach(function (p) {
-            var option = document.createElement("option");
-            option.value = p.id;
-            option.textContent = p.name;
-            participanteSel.appendChild(option);
+            var optionParticipante = document.createElement("option");
+            optionParticipante.value = p.id;
+            optionParticipante.textContent = p.name;
+            participanteSel.appendChild(optionParticipante);
         });
 
         etapas.forEach(function (e) {
-            var option = document.createElement("option");
-            option.value = e.id;
-            option.textContent = e.label;
-            etapaSel.appendChild(option);
+            var optionEtapaDetalle = document.createElement("option");
+            optionEtapaDetalle.value = e.id;
+            optionEtapaDetalle.textContent = e.label;
+            etapaSel.appendChild(optionEtapaDetalle);
+
+            var optionEtapaPartido = document.createElement("option");
+            optionEtapaPartido.value = e.id;
+            optionEtapaPartido.textContent = e.label;
+            detalle2EtapaSel.appendChild(optionEtapaPartido);
         });
     }
 
-    function renderVacio() {
-        emptyState.hidden = false;
+    function renderVacioDetalle() {
         content.hidden = true;
     }
 
-    function renderDetalle() {
+    function renderVacioPartido() {
+        detalle2Content.hidden = true;
+    }
+
+    function renderDetalleParticipante() {
         var participanteId = participanteSel.value;
         var etapaId = etapaSel.value;
         detalleBody.innerHTML = "";
 
         if (!participanteId || !etapaId) {
-            renderVacio();
+            renderVacioDetalle();
             return;
         }
 
         var participante = participantes.find(function (p) { return p.id === participanteId; });
-        var etapa = etapas.find(function (e) { return e.id === etapaId; });
+        var etapa = buscarEtapa(etapaId);
         var detalle = (detalles[participanteId] || {})[etapaId] || null;
+        var mostrarBonus = !!(etapa && etapa.show_bonus);
+        renderHeaderDetalle(mostrarBonus);
 
         resumenParticipante.textContent = participante ? participante.name : "-";
         resumenEtapa.textContent = etapa ? etapa.label : etapaId;
 
         if (!detalle) {
             resumenTotal.textContent = "0 puntos";
-            var trSinData = document.createElement("tr");
-            appendCell(trSinData, "-", "num");
-            appendCell(trSinData, "Sin pronóstico disponible para este participante en esta etapa.");
-            appendCell(trSinData, "-", "");
-            appendCell(trSinData, "0", "num pts-zero");
-            appendCell(trSinData, "0", "num pts-zero");
-            appendCell(trSinData, "0", "num pts-zero");
-            appendCell(trSinData, "0", "num pts-zero");
-            appendCell(trSinData, "No se encontró archivo para esta combinación.");
-            detalleBody.appendChild(trSinData);
-            emptyState.hidden = true;
+            renderSinDataDetalle(mostrarBonus, "Sin pronóstico disponible para este participante en esta etapa.");
             content.hidden = false;
             return;
         }
@@ -582,25 +764,98 @@ Selecciona un participante y una etapa para ver el detalle.
         resumenTotal.textContent = String(detalle.total) + " puntos";
         (detalle.partidos || []).forEach(function (partido) {
             var tr = document.createElement("tr");
-            appendCell(tr, String(partido.partido), "num");
             appendCell(tr, partido.pronostico || "-", "");
             appendCell(tr, partido.pauta || "-", "");
-            appendCell(tr, String(partido.puntos_exactitud || 0), "num " + ((partido.puntos_exactitud || 0) > 0 ? "pts-pos" : "pts-zero"));
-            appendCell(tr, String(partido.puntos_signo || 0), "num " + ((partido.puntos_signo || 0) > 0 ? "pts-pos" : "pts-zero"));
-            appendCell(tr, String(partido.bonus || 0), "num " + ((partido.bonus || 0) > 0 ? "pts-pos" : "pts-zero"));
-            appendCell(tr, String(partido.total || 0), "num " + ((partido.total || 0) > 0 ? "pts-pos" : "pts-zero"));
-            appendCell(tr, partido.desglose || "-", "");
+            appendCell(tr, String(partido.puntos_exactitud || 0), clasePuntos(partido.puntos_exactitud || 0));
+            if (mostrarBonus) {
+                appendCell(tr, String(partido.bonus || 0), clasePuntos(partido.bonus || 0));
+            }
+            appendCell(tr, String(partido.total || 0), clasePuntos(partido.total || 0));
             detalleBody.appendChild(tr);
         });
 
-        emptyState.hidden = true;
         content.hidden = false;
     }
 
+    function renderDetallePartido() {
+        var etapaId = detalle2EtapaSel.value;
+        var partidoNumero = Number(detalle2PartidoSel.value);
+        detalle2Body.innerHTML = "";
+
+        if (!etapaId || !detalle2PartidoSel.value) {
+            renderVacioPartido();
+            return;
+        }
+
+        var etapa = buscarEtapa(etapaId);
+        var mostrarBonus = !!(etapa && etapa.show_bonus);
+        renderHeaderPartido(mostrarBonus);
+
+        var filas = participantes.map(function (p) {
+            var detalleEtapa = (detalles[p.id] || {})[etapaId] || null;
+            var partido = null;
+
+            if (detalleEtapa && Array.isArray(detalleEtapa.partidos)) {
+                partido = detalleEtapa.partidos.find(function (x) {
+                    return Number(x.partido) === partidoNumero;
+                }) || null;
+            }
+
+            return {
+                participante: p.name,
+                pronostico: partido ? (partido.pronostico || "-") : "Sin pronóstico",
+                pauta: partido ? (partido.pauta || "-") : "-",
+                puntosExactitud: partido ? Number(partido.puntos_exactitud || 0) : 0,
+                bonus: partido ? Number(partido.bonus || 0) : 0,
+                total: partido ? Number(partido.total || 0) : 0,
+            };
+        });
+
+        filas.sort(function (a, b) {
+            if (b.total !== a.total) return b.total - a.total;
+            return a.participante.localeCompare(b.participante, "es", { sensitivity: "base" });
+        });
+
+        var resultadoReal = filas.find(function (f) {
+            return f.pauta && f.pauta !== "-" && f.pauta !== "Sin pauta";
+        });
+
+        detalle2ResumenEtapa.textContent = etapa ? etapa.label : etapaId;
+        detalle2ResumenPartido.textContent = etiquetaPartido(etapaId, partidoNumero);
+        detalle2ResumenResultado.textContent = resultadoReal ? resultadoReal.pauta : "-";
+
+        if (!filas.length) {
+            renderSinDataPartido(mostrarBonus, "No hay datos disponibles para este partido.");
+            detalle2Content.hidden = false;
+            return;
+        }
+
+        filas.forEach(function (fila) {
+            var tr = document.createElement("tr");
+            appendCell(tr, fila.participante, "");
+            appendCell(tr, fila.pronostico, "");
+            appendCell(tr, fila.pauta, "");
+            appendCell(tr, String(fila.puntosExactitud), clasePuntos(fila.puntosExactitud));
+            if (mostrarBonus) {
+                appendCell(tr, String(fila.bonus), clasePuntos(fila.bonus));
+            }
+            appendCell(tr, String(fila.total), clasePuntos(fila.total));
+            detalle2Body.appendChild(tr);
+        });
+
+        detalle2Content.hidden = false;
+    }
+
     llenarSelectores();
-    participanteSel.addEventListener("change", renderDetalle);
-    etapaSel.addEventListener("change", renderDetalle);
-    renderVacio();
+    participanteSel.addEventListener("change", renderDetalleParticipante);
+    etapaSel.addEventListener("change", renderDetalleParticipante);
+    detalle2EtapaSel.addEventListener("change", function () {
+        actualizarSelectorPartido();
+        renderDetallePartido();
+    });
+    detalle2PartidoSel.addEventListener("change", renderDetallePartido);
+    renderVacioDetalle();
+    renderVacioPartido();
 })();
 </script>
 
