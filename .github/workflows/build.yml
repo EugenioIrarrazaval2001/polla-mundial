@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "Participantes/**"
+      - "Participantes_Familia/**"
+      - "Participantes_Curso/**"
       - "Pauta/**"
       - "Codigo.py"
       - "requirements.txt"
@@ -43,7 +44,7 @@ jobs:
         run: python Codigo.py
 
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./site
 
