@@ -125,25 +125,20 @@ def id_participante(nombre):
     return normalizar_texto(nombre)
 
 
-def resolver_carpeta_participantes(carpeta_base):
+def resolver_carpeta_por_nombre(carpeta_base, nombre_objetivo):
+    objetivo = str(nombre_objetivo).strip().lower()
     for nombre in os.listdir(carpeta_base):
         ruta = os.path.join(carpeta_base, nombre)
-        if os.path.isdir(ruta) and nombre.lower() == "participantes":
+        if os.path.isdir(ruta) and nombre.lower() == objetivo:
             return ruta
     raise FileNotFoundError(
-        f"No encontré la carpeta 'Participantes' dentro de: {carpeta_base}"
+        f"No encontré la carpeta '{nombre_objetivo}' dentro de: {carpeta_base}"
     )
 
 
 def resolver_carpeta_pauta(carpeta_base):
     # Busca "pauta" sin depender de mayúsculas/minúsculas.
-    for nombre in os.listdir(carpeta_base):
-        ruta = os.path.join(carpeta_base, nombre)
-        if os.path.isdir(ruta) and nombre.lower() == "pauta":
-            return ruta
-    raise FileNotFoundError(
-        f"No encontré la carpeta 'pauta' dentro de: {carpeta_base}"
-    )
+    return resolver_carpeta_por_nombre(carpeta_base, "Pauta")
 
 
 def cargar_pautas_desde_excel(carpeta_pauta):
@@ -515,7 +510,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
               + [bono, total]
         body_rows.append(row)
 
-    def top_podio(posicion, nombre_default, puntos_default):
+    def top_podio(posicion):
         if len(participantes) >= posicion:
             _, nombre, _, _, total = participantes[posicion - 1]
             return {
@@ -525,13 +520,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             }
         return {
             "pos": posicion,
-            "nombre": html_escape(nombre_default),
-            "puntos": puntos_default
+            "nombre": html_escape("Sin participante"),
+            "puntos": 0
         }
 
-    podio_1 = top_podio(1, "Nombre 1", 120)
-    podio_2 = top_podio(2, "Nombre 2", 110)
-    podio_3 = top_podio(3, "Nombre 3", 95)
+    podio_1 = top_podio(1)
+    podio_2 = top_podio(2)
+    podio_3 = top_podio(3)
 
     detalle_script = """
 <script id="detalle-data" type="application/json">__DETALLE_JSON__</script>
@@ -1271,7 +1266,7 @@ tbody tr.podio-bronce td:first-child::before {{
 <body>
 <div class="wrap">
 <div class="hero">
-<h1 class="main-title">Polla Familia Riesco Eyzaguirre</h1>
+<h1 class="main-title">{titulo_competencia}</h1>
 <div class="sub">Generado: {now}</div>
 </div>
 
@@ -1424,10 +1419,87 @@ tbody tr.podio-bronce td:first-child::before {{
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-def main():
+def render_portada_html(out_path):
+    html = """<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pollas Mundialeras</title>
+<style>
+body {
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a1124, #172a59);
+    color: #eef3ff;
+}
+.wrap {
+    width: min(560px, calc(100% - 40px));
+    background: rgba(8, 16, 37, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 26px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+h1 {
+    margin: 0 0 8px;
+    text-align: center;
+}
+p {
+    margin: 0 0 18px;
+    text-align: center;
+    color: rgba(238, 243, 255, 0.78);
+}
+.links {
+    display: grid;
+    gap: 10px;
+}
+a {
+    display: block;
+    text-decoration: none;
+    text-align: center;
+    padding: 12px;
+    border-radius: 10px;
+    background: #243f86;
+    color: #ffffff;
+    font-weight: 700;
+}
+a:hover {
+    background: #2f50a6;
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1>Pollas Mundialeras</h1>
+<p>Selecciona una competencia para ver la tabla.</p>
+<div class="links">
+<a href="./familia/index.html">Ver polla familia</a>
+<a href="./curso/index.html">Ver polla curso</a>
+</div>
+</main>
+</body>
+</html>
+"""
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcarpeta_salida):
+    nombre_competencia = str(nombre_competencia).strip()
+    titulo_competencia = (
+        nombre_competencia
+        if nombre_competencia.lower().startswith("polla ")
+        else f"Polla {nombre_competencia}"
+    )
+
+    print(f"\nGenerando competencia: {nombre_competencia}")
     datos = {}
 
-    # 1) Cargar pautas oficiales desde carpeta pauta
+    # 1) Cargar pautas oficiales desde carpeta Pauta (compartida)
     try:
         carpeta_pauta = resolver_carpeta_pauta(CARPETA)
         (
@@ -1439,47 +1511,50 @@ def main():
             campeon_real_pauta,
         ) = cargar_pautas_desde_excel(carpeta_pauta)
     except Exception as e:
-        print(f"ERROR cargando pautas desde carpeta 'pauta': {e}")
-        sys.exit(1)
+        print(f"[{nombre_competencia}] ERROR cargando pauta compartida: {e}")
+        return False
 
-    print(f"Pautas cargadas desde: {carpeta_pauta}")
+    print(f"[{nombre_competencia}] Pautas cargadas desde: {carpeta_pauta}")
     for etapa in sorted(fuentes_pauta.keys(), key=clave_orden_etapa):
         print(f"  - {etapa}: {fuentes_pauta[etapa]}")
 
     if archivos_ignorados:
-        print("\nAviso: se ignoraron archivos en pauta (nombre no reconocido o etapa no configurada):")
+        print(f"\n[{nombre_competencia}] Aviso: se ignoraron archivos en pauta:")
         for fn in archivos_ignorados:
             print(f"  - {fn}")
 
     if etapas_faltantes:
-        print("\nAviso: faltan pautas para estas etapas:")
+        print(f"\n[{nombre_competencia}] Aviso: faltan pautas para estas etapas:")
         print("  " + ", ".join(etapas_faltantes))
         print("  Se asignará 0 en esas etapas y quedará registrado como error por participante.")
 
-    # 2) Cargar pronósticos desde carpeta Participantes por etapa
+    # 2) Cargar pronósticos de la carpeta específica de la competencia
     try:
-        carpeta_participantes = resolver_carpeta_participantes(CARPETA)
+        carpeta_participantes = resolver_carpeta_por_nombre(
+            CARPETA, nombre_carpeta_participantes
+        )
     except Exception as e:
-        print(f"ERROR cargando carpeta de participantes: {e}")
-        sys.exit(1)
+        print(f"[{nombre_competencia}] ERROR cargando carpeta de participantes: {e}")
+        return False
 
     registros, avisos_pronostico, etapas_vacias = cargar_archivos_pronostico(carpeta_participantes)
 
     if avisos_pronostico:
-        print("\nAviso: se ignoraron archivos de pronóstico:")
+        print(f"\n[{nombre_competencia}] Aviso: se ignoraron archivos de pronóstico:")
         for aviso in avisos_pronostico:
             print(f"  - {aviso}")
 
     if etapas_vacias:
-        print("\nAviso: hay carpetas de etapa sin archivos de pronóstico:")
+        print(f"\n[{nombre_competencia}] Aviso: hay carpetas de etapa sin archivos de pronóstico:")
         print("  " + ", ".join(etapas_vacias))
 
     if not registros:
         print(
-            "No encontré archivos de pronóstico válidos en la carpeta Participantes. "
-            "Usa carpetas por etapa (ej: E01 o etapa 01) y archivos como Nombre.xlsx."
+            f"[{nombre_competencia}] ERROR: no encontré pronósticos válidos en "
+            f"'{nombre_carpeta_participantes}'. Usa carpetas por etapa (ej: E01 o etapa 01) "
+            "y archivos como Nombre.xlsx."
         )
-        sys.exit(1)
+        return False
 
     procesados = set()
 
@@ -1570,11 +1645,11 @@ def main():
     campeon_real_norm = norm(campeon_real_oficial)
 
     if norm(campeon_real_pauta):
-        print(f"\nCampeón oficial desde pauta E01 (B4): {campeon_real_pauta}")
+        print(f"\n[{nombre_competencia}] Campeón oficial desde pauta E01 (B4): {campeon_real_pauta}")
     elif norm(CAMPEON_REAL_MANUAL):
-        print("\nAviso: B4 de E01Pauta está vacío. Usando CAMPEON_REAL_MANUAL como fallback.")
+        print(f"\n[{nombre_competencia}] Aviso: B4 de E01Pauta está vacío. Usando CAMPEON_REAL_MANUAL como fallback.")
     else:
-        print("\nAviso: no hay campeón oficial en E01Pauta (B4 vacío). No se asignará Bono Campeón.")
+        print(f"\n[{nombre_competencia}] Aviso: no hay campeón oficial en E01Pauta (B4 vacío). No se asignará Bono Campeón.")
 
     # 5) Ranking general (sin grupos)
     participantes = []
@@ -1590,7 +1665,7 @@ def main():
     participantes.sort(key=lambda x: (-x[4], x[1].upper()))  # total desc, nombre asc
 
     print("\n" + "=" * ancho_tabla)
-    print("Tabla de posiciones - General")
+    print(f"Tabla de posiciones - {titulo_competencia}")
     print("=" * ancho_tabla)
 
     # Header fila 1
@@ -1658,9 +1733,11 @@ def main():
         },
     }
 
-    out_html = os.path.join(OUTPUT_DIR, "index.html")
+    out_dir = os.path.join(OUTPUT_DIR, subcarpeta_salida)
+    os.makedirs(out_dir, exist_ok=True)
+    out_html = os.path.join(out_dir, "index.html")
     render_tabla_html(
-        nombre_competencia="General",
+        nombre_competencia=titulo_competencia,
         participantes=participantes_html,
         etapas_ordenadas=etapas_ordenadas,
         max_por_etapa=max_por_etapa,
@@ -1669,6 +1746,30 @@ def main():
         out_path=out_html,
         detalle_payload=payload_detalle
     )
+    print(f"[{nombre_competencia}] HTML generado: {out_html}")
+    return True
+
+
+def main():
+    resultados = {}
+    resultados["familia"] = generar_competencia(
+        nombre_competencia="familia",
+        nombre_carpeta_participantes="Participantes_Familia",
+        subcarpeta_salida="familia",
+    )
+    resultados["curso"] = generar_competencia(
+        nombre_competencia="curso",
+        nombre_carpeta_participantes="Participantes_Curso",
+        subcarpeta_salida="curso",
+    )
+
+    out_portada = os.path.join(OUTPUT_DIR, "index.html")
+    render_portada_html(out_portada)
+    print(f"\nPortada generada: {out_portada}")
+
+    if not any(resultados.values()):
+        print("\nERROR: no se pudo generar ninguna competencia.")
+        sys.exit(1)
 
 
 

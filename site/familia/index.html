@@ -1,0 +1,870 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Tabla de posiciones - Polla familia</title>
+
+<style>
+:root {
+    --bg-0: #070b17;
+    --bg-1: #0b1020;
+    --text: #ecf2ff;
+    --muted: rgba(236, 242, 255, 0.72);
+    --gold-1: #f3b000;
+    --gold-2: #ffdf57;
+    --silver-1: #9ea8ba;
+    --silver-2: #e3e9f5;
+    --bronze-1: #8a4c1f;
+    --bronze-2: #d08a4f;
+}
+
+body {
+    font-family: "Trebuchet MS", "Segoe UI", "Gill Sans", sans-serif;
+    background:
+        radial-gradient(circle at 20% 15%, rgba(70, 122, 255, 0.20), transparent 32%),
+        radial-gradient(circle at 80% 0%, rgba(255, 201, 78, 0.16), transparent 28%),
+        linear-gradient(165deg, var(--bg-0), var(--bg-1), #0f1730);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+    min-height: 100vh;
+}
+
+.wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.main-title {
+    margin: 0 0 8px 0;
+    text-align: center;
+    letter-spacing: 0.6px;
+    font-size: clamp(28px, 4vw, 48px);
+    color: #ffffff;
+    text-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.hero {
+    margin-bottom: 14px;
+}
+
+.sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 18px;
+}
+
+.podio-wrap {
+    margin: 18px auto 30px;
+}
+
+.podio-title {
+    margin: 0 0 14px 0;
+    text-align: center;
+    font-size: 20px;
+    letter-spacing: 0.4px;
+}
+
+.podio-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+    gap: 16px;
+    align-items: end;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.podio-step {
+    border-radius: 18px 18px 10px 10px;
+    padding: 16px 12px 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+}
+
+.podio-num {
+    font-size: clamp(42px, 6vw, 74px);
+    font-weight: 800;
+    line-height: 0.9;
+    margin-top: 6px;
+}
+
+.podio-name {
+    margin-top: 12px;
+    font-size: clamp(16px, 2vw, 22px);
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.podio-points {
+    margin-top: 6px;
+    font-size: clamp(14px, 1.8vw, 18px);
+    font-weight: 600;
+    opacity: 0.95;
+}
+
+.podio-first {
+    min-height: 300px;
+    background: linear-gradient(180deg, var(--gold-2), var(--gold-1));
+    color: #2f2300;
+}
+
+.podio-second {
+    min-height: 235px;
+    background: linear-gradient(180deg, var(--silver-2), var(--silver-1));
+    color: #152033;
+}
+
+.podio-third {
+    min-height: 205px;
+    background: linear-gradient(180deg, var(--bronze-2), var(--bronze-1));
+    color: #28160b;
+}
+
+.tabla-title {
+    margin: 0 0 10px 0;
+    text-align: center;
+    font-size: 22px;
+    letter-spacing: 0.3px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    background: #121a33;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.30);
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    word-wrap: break-word;
+}
+
+thead tr:first-child {
+    background: #1c2753;
+    font-weight: bold;
+}
+
+thead tr:nth-child(2) {
+    background: #141c3a;
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+tbody tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+td.total {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+td.nombre {
+    text-align: center;
+}
+
+/* Estilo podio dentro de la tabla existente */
+tbody tr.podio-oro {
+    background: linear-gradient(90deg, #ffd700, #ffea00, #ffd700);
+    color: #1a1a1a;
+    font-weight: 700;
+}
+
+tbody tr.podio-plata {
+    background: linear-gradient(90deg, #cfcfcf, #f5f5f5, #cfcfcf);
+    color: #1a1a1a;
+    font-weight: 700;
+}
+
+tbody tr.podio-bronce {
+    background: linear-gradient(90deg, #cd7f32, #e6a15a, #cd7f32);
+    color: #1a1a1a;
+    font-weight: 700;
+}
+
+tbody tr.podio-oro td.total,
+tbody tr.podio-plata td.total,
+tbody tr.podio-bronce td.total {
+    font-size: 18px;
+    font-weight: 800;
+}
+
+tbody tr.podio-oro:hover,
+tbody tr.podio-plata:hover,
+tbody tr.podio-bronce:hover {
+    filter: brightness(1.05);
+}
+
+tbody tr.podio-oro td:first-child::before {
+    content: "1";
+    font-weight: 800;
+}
+
+tbody tr.podio-plata td:first-child::before {
+    content: "2";
+    font-weight: 800;
+}
+
+tbody tr.podio-bronce td:first-child::before {
+    content: "3";
+    font-weight: 800;
+}
+
+.detalle-wrap {
+    margin-top: 34px;
+    padding: 22px;
+    border-radius: 16px;
+    background: rgba(12, 22, 49, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+}
+
+.detalle-wrap-sec {
+    margin-top: 18px;
+}
+
+.detalle-title {
+    margin: 0 0 16px 0;
+    text-align: left;
+    font-size: clamp(20px, 2.4vw, 28px);
+}
+
+.detalle-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.detalle-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detalle-field label {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.detalle-select {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #0e1a3a;
+    color: var(--text);
+    font-size: 15px;
+}
+
+.detalle-select:disabled {
+    opacity: 0.66;
+    cursor: not-allowed;
+}
+
+.detalle-summary {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.detalle-card {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.detalle-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.detalle-value {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.detalle-total {
+    color: #ffdf57;
+}
+
+.detalle-table-wrap {
+    margin-top: 14px;
+    overflow-x: auto;
+}
+
+.detalle-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #101a39;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.detalle-table th,
+.detalle-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+    font-size: 14px;
+    vertical-align: top;
+}
+
+.detalle-table th {
+    background: #1a2654;
+    color: #f6f8ff;
+    font-weight: 700;
+}
+
+.detalle-table td.num {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.detalle-table th.num {
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.pts-pos {
+    color: #7ef29e;
+    font-weight: 700;
+}
+
+.pts-zero {
+    color: #d7deef;
+}
+
+@media (max-width: 900px) {
+    .podio-grid {
+        grid-template-columns: 1fr;
+        max-width: 440px;
+    }
+
+    .podio-first {
+        min-height: 220px;
+        order: 1;
+    }
+
+    .podio-second {
+        min-height: 180px;
+        order: 2;
+    }
+
+    .podio-third {
+        min-height: 165px;
+        order: 3;
+    }
+
+    table {
+        font-size: 13px;
+    }
+
+    th, td {
+        padding: 10px 8px;
+    }
+
+    .detalle-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .detalle-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .detalle-table th,
+    .detalle-table td {
+        font-size: 13px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<div class="hero">
+<h1 class="main-title">Polla familia</h1>
+<div class="sub">Generado: 2026-04-15 09:32:38</div>
+</div>
+
+<section class="podio-wrap" aria-label="Podio actual">
+<div class="podio-grid">
+<article class="podio-step podio-second">
+<div class="podio-num">2&deg;</div>
+<div class="podio-name">Juampi Jr</div>
+<div class="podio-points">0 puntos</div>
+</article>
+<article class="podio-step podio-first">
+<div class="podio-num">1&deg;</div>
+<div class="podio-name">Jota</div>
+<div class="podio-points">0 puntos</div>
+</article>
+<article class="podio-step podio-third">
+<div class="podio-num">3&deg;</div>
+<div class="podio-name">Juampi Papá</div>
+<div class="podio-points">0 puntos</div>
+</article>
+</div>
+</section>
+
+<table>
+<thead>
+<tr>
+<th>Pos</th><th>Nombre</th><th>Grupos</th><th>16avos</th><th>Octavos</th><th>Cuartos</th><th>Semis</th><th>Final</th><th>Bono Campeón</th><th>Total</th>
+</tr>
+<tr>
+<th></th><th></th><th>Max=25</th><th>Max=32</th><th>Max=16</th><th>Max=12</th><th>Max=6</th><th>Max=4</th><th>Max=5</th><th>Max=100</th>
+</tr>
+</thead>
+
+<tbody>
+<tr class='podio-oro'><td></td><td class='nombre'>Jota</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr class='podio-plata'><td></td><td class='nombre'>Juampi Jr</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr class='podio-bronce'><td></td><td class='nombre'>Juampi Papá</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>4</td><td class='nombre'>Keno</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>5</td><td class='nombre'>Martín</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>6</td><td class='nombre'>Toti</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>7</td><td class='nombre'>Trini Mamá</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr><tr><td>8</td><td class='nombre'>Trinita</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr>
+</tbody>
+
+</table>
+
+<section class="detalle-wrap" id="detalle-section">
+<h2 class="detalle-title">Detalle por participante y etapa</h2>
+
+<div class="detalle-controls">
+    <div class="detalle-field">
+        <label for="detalle-participante">Participante</label>
+        <select id="detalle-participante" class="detalle-select">
+            <option value="">Selecciona un participante</option>
+        </select>
+    </div>
+    <div class="detalle-field">
+        <label for="detalle-etapa">Etapa</label>
+        <select id="detalle-etapa" class="detalle-select">
+            <option value="">Selecciona una etapa</option>
+        </select>
+    </div>
+</div>
+
+<div id="detalle-content" hidden>
+    <div class="detalle-summary">
+        <div class="detalle-card">
+            <div class="detalle-label">Participante</div>
+            <div class="detalle-value" id="detalle-resumen-participante">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Etapa</div>
+            <div class="detalle-value" id="detalle-resumen-etapa">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Total etapa</div>
+            <div class="detalle-value detalle-total" id="detalle-resumen-total">0 puntos</div>
+        </div>
+    </div>
+
+    <div class="detalle-table-wrap">
+        <table class="detalle-table">
+            <thead>
+                <tr id="detalle-head-row"></tr>
+            </thead>
+            <tbody id="detalle-body"></tbody>
+        </table>
+    </div>
+</div>
+</section>
+
+<section class="detalle-wrap detalle-wrap-sec" id="detalle2-section">
+<h2 class="detalle-title">Detalle por etapa y partido</h2>
+
+<div class="detalle-controls">
+    <div class="detalle-field">
+        <label for="detalle2-etapa">Etapa</label>
+        <select id="detalle2-etapa" class="detalle-select">
+            <option value="">Selecciona una etapa</option>
+        </select>
+    </div>
+    <div class="detalle-field">
+        <label for="detalle2-partido">Partido</label>
+        <select id="detalle2-partido" class="detalle-select" disabled>
+            <option value="">Selecciona un partido</option>
+        </select>
+    </div>
+</div>
+
+<div id="detalle2-content" hidden>
+    <div class="detalle-summary">
+        <div class="detalle-card">
+            <div class="detalle-label">Etapa</div>
+            <div class="detalle-value" id="detalle2-resumen-etapa">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Partido</div>
+            <div class="detalle-value" id="detalle2-resumen-partido">-</div>
+        </div>
+        <div class="detalle-card">
+            <div class="detalle-label">Resultado Real</div>
+            <div class="detalle-value" id="detalle2-resumen-resultado">-</div>
+        </div>
+    </div>
+
+    <div class="detalle-table-wrap">
+        <table class="detalle-table">
+            <thead>
+                <tr id="detalle2-head-row"></tr>
+            </thead>
+            <tbody id="detalle2-body"></tbody>
+        </table>
+    </div>
+</div>
+</section>
+
+
+<script id="detalle-data" type="application/json">{"participants": [{"id": "JOTA", "name": "Jota"}, {"id": "JUAMPI JR", "name": "Juampi Jr"}, {"id": "JUAMPI PAPÁ", "name": "Juampi Papá"}, {"id": "KENO", "name": "Keno"}, {"id": "MARTÍN", "name": "Martín"}, {"id": "TOTI", "name": "Toti"}, {"id": "TRINI MAMÁ", "name": "Trini Mamá"}, {"id": "TRINITA", "name": "Trinita"}], "stages": [{"id": "E01", "label": "Fase de grupos", "show_bonus": false}, {"id": "E02", "label": "16avos", "show_bonus": true}, {"id": "E03", "label": "Octavos", "show_bonus": true}, {"id": "E04", "label": "Cuartos", "show_bonus": true}, {"id": "E05", "label": "Semis", "show_bonus": true}, {"id": "E06", "label": "Final", "show_bonus": true}], "details": {"JOTA": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "JUAMPI JR": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "JUAMPI PAPÁ": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "KENO": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana México", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "Gana Brasil", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "Gana Australia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "Empate", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "Gana Bélgica", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "Gana Francia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "Gana Argentina", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "Gana Inglaterra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "Gana México", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "Gana Estados Unidos", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "Gana Holanda", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "Gana Bélgica", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "Gana Argentina", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "Gana Noruega", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "Gana Suiza", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "Gana Alemania", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "Gana Japón", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "Gana Estados Unidos", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "Gana Paraguay", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "Gana España", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "Gana Francia", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "Gana Egipto", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "Gana Austria", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "Gana Portugal", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}, "E02": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 9, "pronostico": "Pasa Países Bajos | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 10, "pronostico": "Pasa Bélgica | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 11, "pronostico": "Pasa Croacia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 12, "pronostico": "Pasa Uruguay | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 13, "pronostico": "Pasa Colombia | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 14, "pronostico": "Pasa Chile | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 15, "pronostico": "Pasa México | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 16, "pronostico": "Pasa Japón | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E03": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 5, "pronostico": "Pasa Alemania | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 6, "pronostico": "Pasa Inglaterra | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 7, "pronostico": "Pasa Argentina | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 8, "pronostico": "Pasa Portugal | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E04": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 3, "pronostico": "Pasa Francia | En penales", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 4, "pronostico": "Pasa Brasil | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E05": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Pasa Perú | En tiempo extra", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}, {"partido": 2, "pronostico": "Pasa España | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}, "E06": {"total": 0, "partidos": [{"partido": 1, "pronostico": "Gana Perú | En los 90", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta quién pasa (0)."}]}}, "MARTÍN": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TOTI": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TRINI MAMÁ": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}, "TRINITA": {"E01": {"total": 0, "partidos": [{"partido": 1, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 2, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 3, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 4, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 5, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 6, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 7, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 8, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 9, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 10, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 11, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 12, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 13, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 14, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 15, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 16, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 17, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 18, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 19, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 20, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 21, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 22, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 23, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 24, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}, {"partido": 25, "pronostico": "-", "pauta": "-", "puntos_exactitud": 0, "puntos_signo": 0, "bonus": 0, "total": 0, "desglose": "No acierta resultado (0)."}]}}}, "match_labels": {"E01": ["México vs Sudáfrica", "Estados Unidos vs Paraguay", "Brasil vs Marruecos", "Australia vs Turquía", "Holanda vs Japón", "Bélgica vs Egipto", "Francia vs Senegal", "Argentina vs Argelia", "Inglaterra vs Croacia", "México vs Corea", "Estados Unidos vs Australia", "Holanda vs Suecia", "Bélgica vs Irán", "Argentina vs Austria", "Noruega vs Senegal", "Suiza vs Canadá", "Ecuador vs Alemania", "Japón vs Suecia", "Turquía vs Estados Unidos", "Paraguay vs Australia", "Uruguay vs España", "Noruega vs Francia", "Egipto vs Irán", "Argelia vs Austria", "Colombia vs Portugal"], "E02": ["Partido 1", "Partido 2", "Partido 3", "Partido 4", "Partido 5", "Partido 6", "Partido 7", "Partido 8", "Partido 9", "Partido 10", "Partido 11", "Partido 12", "Partido 13", "Partido 14", "Partido 15", "Partido 16"], "E03": ["Partido 1", "Partido 2", "Partido 3", "Partido 4", "Partido 5", "Partido 6", "Partido 7", "Partido 8"], "E04": ["Partido 1", "Partido 2", "Partido 3", "Partido 4"], "E05": ["Partido 1", "Partido 2"], "E06": ["Partido 1"]}}</script>
+<script>
+(function () {
+    var dataNode = document.getElementById("detalle-data");
+    if (!dataNode) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear detalle-data", e);
+        return;
+    }
+
+    var participantes = payload.participants || [];
+    var etapas = payload.stages || [];
+    var detalles = payload.details || {};
+    var etiquetasPartidos = payload.match_labels || {};
+
+    var participanteSel = document.getElementById("detalle-participante");
+    var etapaSel = document.getElementById("detalle-etapa");
+    var content = document.getElementById("detalle-content");
+    var resumenParticipante = document.getElementById("detalle-resumen-participante");
+    var resumenEtapa = document.getElementById("detalle-resumen-etapa");
+    var resumenTotal = document.getElementById("detalle-resumen-total");
+    var detalleHead = document.getElementById("detalle-head-row");
+    var detalleBody = document.getElementById("detalle-body");
+
+    var detalle2EtapaSel = document.getElementById("detalle2-etapa");
+    var detalle2PartidoSel = document.getElementById("detalle2-partido");
+    var detalle2Content = document.getElementById("detalle2-content");
+    var detalle2ResumenEtapa = document.getElementById("detalle2-resumen-etapa");
+    var detalle2ResumenPartido = document.getElementById("detalle2-resumen-partido");
+    var detalle2ResumenResultado = document.getElementById("detalle2-resumen-resultado");
+    var detalle2Head = document.getElementById("detalle2-head-row");
+    var detalle2Body = document.getElementById("detalle2-body");
+
+    function appendCell(tr, value, className) {
+        var td = document.createElement("td");
+        if (className) td.className = className;
+        td.textContent = value;
+        tr.appendChild(td);
+    }
+
+    function clasePuntos(value) {
+        return "num " + (Number(value || 0) > 0 ? "pts-pos" : "pts-zero");
+    }
+
+    function resetSelect(selectNode, placeholder) {
+        if (!selectNode) return;
+        selectNode.innerHTML = "";
+        var option = document.createElement("option");
+        option.value = "";
+        option.textContent = placeholder;
+        selectNode.appendChild(option);
+    }
+
+    function renderHeaderDetalle(mostrarBonus) {
+        detalleHead.innerHTML = "";
+        var headers = [
+            { text: "Pronóstico participante", cls: "" },
+            { text: "Resultado Real", cls: "" },
+            { text: "Puntos por acertar resultado", cls: "num" }
+        ];
+
+        if (mostrarBonus) {
+            headers.push({ text: "Bonus por acertar modo", cls: "num" });
+        }
+        headers.push({ text: "Total", cls: "num" });
+
+        headers.forEach(function (h) {
+            var th = document.createElement("th");
+            if (h.cls) th.className = h.cls;
+            th.textContent = h.text;
+            detalleHead.appendChild(th);
+        });
+    }
+
+    function renderHeaderPartido(mostrarBonus) {
+        detalle2Head.innerHTML = "";
+        var headers = [
+            { text: "Participante", cls: "" },
+            { text: "Pronóstico participante", cls: "" },
+            { text: "Resultado Real", cls: "" },
+            { text: "Puntos por acertar resultado", cls: "num" }
+        ];
+
+        if (mostrarBonus) {
+            headers.push({ text: "Bonus por acertar modo", cls: "num" });
+        }
+        headers.push({ text: "Total partido", cls: "num" });
+
+        headers.forEach(function (h) {
+            var th = document.createElement("th");
+            if (h.cls) th.className = h.cls;
+            th.textContent = h.text;
+            detalle2Head.appendChild(th);
+        });
+    }
+
+    function renderSinDataDetalle(mostrarBonus, mensaje) {
+        detalleBody.innerHTML = "";
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = mostrarBonus ? 5 : 4;
+        td.textContent = mensaje;
+        tr.appendChild(td);
+        detalleBody.appendChild(tr);
+    }
+
+    function renderSinDataPartido(mostrarBonus, mensaje) {
+        detalle2Body.innerHTML = "";
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = mostrarBonus ? 6 : 5;
+        td.textContent = mensaje;
+        tr.appendChild(td);
+        detalle2Body.appendChild(tr);
+    }
+
+    function buscarEtapa(etapaId) {
+        return etapas.find(function (e) { return e.id === etapaId; }) || null;
+    }
+
+    function etiquetaPartido(etapaId, numeroPartido) {
+        var n = Number(numeroPartido);
+        if (isNaN(n) || n <= 0) {
+            return "";
+        }
+        var lista = etiquetasPartidos[etapaId];
+        if (Array.isArray(lista) && (n - 1) < lista.length) {
+            var etiqueta = String(lista[n - 1] || "").trim();
+            if (etiqueta) {
+                return etiqueta;
+            }
+        }
+        return "Partido " + String(n);
+    }
+
+    function partidosDisponiblesDeEtapa(etapaId) {
+        var partidos = {};
+        participantes.forEach(function (p) {
+            var detalleEtapa = (detalles[p.id] || {})[etapaId];
+            if (!detalleEtapa || !Array.isArray(detalleEtapa.partidos)) return;
+            detalleEtapa.partidos.forEach(function (partido) {
+                var numero = Number(partido.partido);
+                if (!isNaN(numero) && numero > 0) {
+                    partidos[numero] = true;
+                }
+            });
+        });
+
+        return Object.keys(partidos).map(function (x) { return Number(x); }).sort(function (a, b) { return a - b; });
+    }
+
+    function actualizarSelectorPartido() {
+        var etapaId = detalle2EtapaSel.value;
+        resetSelect(detalle2PartidoSel, "Selecciona un partido");
+
+        if (!etapaId) {
+            detalle2PartidoSel.disabled = true;
+            return;
+        }
+
+        var partidos = partidosDisponiblesDeEtapa(etapaId);
+        if (!partidos.length) {
+            var vacio = document.createElement("option");
+            vacio.value = "";
+            vacio.textContent = "Sin partidos disponibles";
+            detalle2PartidoSel.appendChild(vacio);
+            detalle2PartidoSel.disabled = true;
+            return;
+        }
+
+        partidos.forEach(function (numero) {
+            var option = document.createElement("option");
+            option.value = String(numero);
+            option.textContent = etiquetaPartido(etapaId, numero);
+            detalle2PartidoSel.appendChild(option);
+        });
+        detalle2PartidoSel.disabled = false;
+    }
+
+    function llenarSelectores() {
+        participantes.forEach(function (p) {
+            var optionParticipante = document.createElement("option");
+            optionParticipante.value = p.id;
+            optionParticipante.textContent = p.name;
+            participanteSel.appendChild(optionParticipante);
+        });
+
+        etapas.forEach(function (e) {
+            var optionEtapaDetalle = document.createElement("option");
+            optionEtapaDetalle.value = e.id;
+            optionEtapaDetalle.textContent = e.label;
+            etapaSel.appendChild(optionEtapaDetalle);
+
+            var optionEtapaPartido = document.createElement("option");
+            optionEtapaPartido.value = e.id;
+            optionEtapaPartido.textContent = e.label;
+            detalle2EtapaSel.appendChild(optionEtapaPartido);
+        });
+    }
+
+    function renderVacioDetalle() {
+        content.hidden = true;
+    }
+
+    function renderVacioPartido() {
+        detalle2Content.hidden = true;
+    }
+
+    function renderDetalleParticipante() {
+        var participanteId = participanteSel.value;
+        var etapaId = etapaSel.value;
+        detalleBody.innerHTML = "";
+
+        if (!participanteId || !etapaId) {
+            renderVacioDetalle();
+            return;
+        }
+
+        var participante = participantes.find(function (p) { return p.id === participanteId; });
+        var etapa = buscarEtapa(etapaId);
+        var detalle = (detalles[participanteId] || {})[etapaId] || null;
+        var mostrarBonus = !!(etapa && etapa.show_bonus);
+        renderHeaderDetalle(mostrarBonus);
+
+        resumenParticipante.textContent = participante ? participante.name : "-";
+        resumenEtapa.textContent = etapa ? etapa.label : etapaId;
+
+        if (!detalle) {
+            resumenTotal.textContent = "0 puntos";
+            renderSinDataDetalle(mostrarBonus, "Sin pronóstico disponible para este participante en esta etapa.");
+            content.hidden = false;
+            return;
+        }
+
+        resumenTotal.textContent = String(detalle.total) + " puntos";
+        (detalle.partidos || []).forEach(function (partido) {
+            var tr = document.createElement("tr");
+            appendCell(tr, partido.pronostico || "-", "");
+            appendCell(tr, partido.pauta || "-", "");
+            appendCell(tr, String(partido.puntos_exactitud || 0), clasePuntos(partido.puntos_exactitud || 0));
+            if (mostrarBonus) {
+                appendCell(tr, String(partido.bonus || 0), clasePuntos(partido.bonus || 0));
+            }
+            appendCell(tr, String(partido.total || 0), clasePuntos(partido.total || 0));
+            detalleBody.appendChild(tr);
+        });
+
+        content.hidden = false;
+    }
+
+    function renderDetallePartido() {
+        var etapaId = detalle2EtapaSel.value;
+        var partidoNumero = Number(detalle2PartidoSel.value);
+        detalle2Body.innerHTML = "";
+
+        if (!etapaId || !detalle2PartidoSel.value) {
+            renderVacioPartido();
+            return;
+        }
+
+        var etapa = buscarEtapa(etapaId);
+        var mostrarBonus = !!(etapa && etapa.show_bonus);
+        renderHeaderPartido(mostrarBonus);
+
+        var filas = participantes.map(function (p) {
+            var detalleEtapa = (detalles[p.id] || {})[etapaId] || null;
+            var partido = null;
+
+            if (detalleEtapa && Array.isArray(detalleEtapa.partidos)) {
+                partido = detalleEtapa.partidos.find(function (x) {
+                    return Number(x.partido) === partidoNumero;
+                }) || null;
+            }
+
+            return {
+                participante: p.name,
+                pronostico: partido ? (partido.pronostico || "-") : "Sin pronóstico",
+                pauta: partido ? (partido.pauta || "-") : "-",
+                puntosExactitud: partido ? Number(partido.puntos_exactitud || 0) : 0,
+                bonus: partido ? Number(partido.bonus || 0) : 0,
+                total: partido ? Number(partido.total || 0) : 0,
+            };
+        });
+
+        filas.sort(function (a, b) {
+            if (b.total !== a.total) return b.total - a.total;
+            return a.participante.localeCompare(b.participante, "es", { sensitivity: "base" });
+        });
+
+        var resultadoReal = filas.find(function (f) {
+            return f.pauta && f.pauta !== "-" && f.pauta !== "Sin pauta";
+        });
+
+        detalle2ResumenEtapa.textContent = etapa ? etapa.label : etapaId;
+        detalle2ResumenPartido.textContent = etiquetaPartido(etapaId, partidoNumero);
+        detalle2ResumenResultado.textContent = resultadoReal ? resultadoReal.pauta : "-";
+
+        if (!filas.length) {
+            renderSinDataPartido(mostrarBonus, "No hay datos disponibles para este partido.");
+            detalle2Content.hidden = false;
+            return;
+        }
+
+        filas.forEach(function (fila) {
+            var tr = document.createElement("tr");
+            appendCell(tr, fila.participante, "");
+            appendCell(tr, fila.pronostico, "");
+            appendCell(tr, fila.pauta, "");
+            appendCell(tr, String(fila.puntosExactitud), clasePuntos(fila.puntosExactitud));
+            if (mostrarBonus) {
+                appendCell(tr, String(fila.bonus), clasePuntos(fila.bonus));
+            }
+            appendCell(tr, String(fila.total), clasePuntos(fila.total));
+            detalle2Body.appendChild(tr);
+        });
+
+        detalle2Content.hidden = false;
+    }
+
+    llenarSelectores();
+    participanteSel.addEventListener("change", renderDetalleParticipante);
+    etapaSel.addEventListener("change", renderDetalleParticipante);
+    detalle2EtapaSel.addEventListener("change", function () {
+        actualizarSelectorPartido();
+        renderDetallePartido();
+    });
+    detalle2PartidoSel.addEventListener("change", renderDetallePartido);
+    renderVacioDetalle();
+    renderVacioPartido();
+})();
+</script>
+
+</div>
+</body>
+</html>
