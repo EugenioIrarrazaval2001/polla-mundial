@@ -2040,7 +2040,7 @@ tbody tr.podio-bronce td:first-child::before {{
 
 <section class="resultados-wrap" id="resultados-section">
 <h2 class="detalle-title">Resultados actualizados del Mundial</h2>
-<p class="resultados-sub">Resultados oficiales cargados desde la pauta.</p>
+<p class="resultados-sub">Resultados oficiales con última actualización en {now}</p>
 
 <div class="resultados-layout">
     <div class="detalle-field">
