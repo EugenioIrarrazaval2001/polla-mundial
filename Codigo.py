@@ -2,6 +2,7 @@
 import re
 import json
 import sys
+import unicodedata
 from openpyxl import load_workbook
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -155,6 +156,7 @@ def cargar_pautas_desde_excel(carpeta_pauta):
     fuentes = {}
     ignorados = []
     enfrentamientos = {}
+    enfrentamientos_detalle = {}
     campeon_real_pauta = None
 
     for fn in archivos_excel:
@@ -185,7 +187,8 @@ def cargar_pautas_desde_excel(carpeta_pauta):
             pauta_etapa = leer_celdas_eliminatoria(ws, cfg["n_partidos"])
         else:
             raise ValueError(f"Tipo de etapa desconocido: {cfg['tipo']}")
-        enfrentamientos_etapa = leer_enfrentamientos_etapa(ws, cfg)
+        enfrentamientos_detalle_etapa = leer_enfrentamientos_etapa_detalle(ws, cfg)
+        enfrentamientos_etapa = [p["nombre"] for p in enfrentamientos_detalle_etapa]
 
         if len(pauta_etapa) != cfg["n_partidos"]:
             raise ValueError(
@@ -195,6 +198,7 @@ def cargar_pautas_desde_excel(carpeta_pauta):
         pautas[etapa] = pauta_etapa
         fuentes[etapa] = fn
         enfrentamientos[etapa] = enfrentamientos_etapa
+        enfrentamientos_detalle[etapa] = enfrentamientos_detalle_etapa
 
     if not pautas:
         raise ValueError(
@@ -203,7 +207,7 @@ def cargar_pautas_desde_excel(carpeta_pauta):
         )
 
     faltantes = [e for e in sorted(ETAPAS.keys()) if e not in pautas]
-    return pautas, fuentes, faltantes, ignorados, enfrentamientos, campeon_real_pauta
+    return pautas, fuentes, faltantes, ignorados, enfrentamientos, campeon_real_pauta, enfrentamientos_detalle
 
 
 def cargar_archivos_pronostico(carpeta_participantes):
@@ -339,6 +343,47 @@ def valor_visible(x):
     return txt if txt else "-"
 
 
+def valor_payload(x):
+    if x is None:
+        return ""
+    return str(x).strip()
+
+
+def normalizar_comparacion(x):
+    txt = normalizar_texto(x)
+    txt = unicodedata.normalize("NFD", txt)
+    txt = "".join(ch for ch in txt if unicodedata.category(ch) != "Mn")
+    txt = re.sub(r"[^A-Z0-9]+", " ", txt)
+    return " ".join(txt.split())
+
+
+def es_empate_pauta(x):
+    return normalizar_comparacion(x) in {
+        "EMPATE",
+        "EMPATADO",
+        "E",
+        "DRAW",
+        "TIE",
+        "X",
+        "IGUALDAD",
+    }
+
+
+def etiqueta_modo_eliminatoria(modo):
+    txt = valor_payload(modo)
+    if not txt:
+        return ""
+
+    norm = normalizar_comparacion(txt)
+    if norm in {"90", "90 MIN", "90 MINUTOS", "TIEMPO REGULAR", "REGULAR", "EN LOS 90", "EN 90", "LOS 90"}:
+        return "90'"
+    if norm in {"ALARGUE", "ALARGUE EXTRA", "TIEMPO EXTRA", "EN TIEMPO EXTRA", "SUPLEMENTARIO", "PRORROGA"}:
+        return "Alargue"
+    if norm in {"PENALES", "EN PENALES", "PENAL", "PENALTIS", "PENALTIES", "PK", "PEN"}:
+        return "Penales"
+    return txt
+
+
 def formatear_prediccion_elim(pasa, modo):
     vp = valor_visible(pasa)
     vm = valor_visible(modo)
@@ -361,7 +406,7 @@ def formatear_enfrentamiento(equipo_a, equipo_b, numero_partido):
     return f"Partido {numero_partido}"
 
 
-def leer_enfrentamientos_etapa(ws, cfg, celda_inicial=CELDA_INICIAL_RESULTADO, salto_filas=SALTO_FILAS):
+def leer_enfrentamientos_etapa_detalle(ws, cfg, celda_inicial=CELDA_INICIAL_RESULTADO, salto_filas=SALTO_FILAS):
     col_equipo_a = celda_inicial[0]
     col_equipo_b = "D"
     fila_base = int(celda_inicial[1:])
@@ -374,11 +419,201 @@ def leer_enfrentamientos_etapa(ws, cfg, celda_inicial=CELDA_INICIAL_RESULTADO, s
 
     out = []
     for i in range(cfg["n_partidos"]):
+        numero_partido = i + 1
         fila_enfrentamiento = (fila_prediccion - 1) + (i * salto_filas)
         equipo_a = ws[f"{col_equipo_a}{fila_enfrentamiento}"].value
         equipo_b = ws[f"{col_equipo_b}{fila_enfrentamiento}"].value
-        out.append(formatear_enfrentamiento(equipo_a, equipo_b, i + 1))
+        out.append({
+            "numero": numero_partido,
+            "nombre": formatear_enfrentamiento(equipo_a, equipo_b, numero_partido),
+            "equipo_a": valor_payload(equipo_a),
+            "equipo_b": valor_payload(equipo_b),
+        })
     return out
+
+
+def leer_enfrentamientos_etapa(ws, cfg, celda_inicial=CELDA_INICIAL_RESULTADO, salto_filas=SALTO_FILAS):
+    return [
+        partido["nombre"]
+        for partido in leer_enfrentamientos_etapa_detalle(ws, cfg, celda_inicial, salto_filas)
+    ]
+
+
+def interpretar_resultado_grupos(pauta, equipo_a, equipo_b):
+    resultado = valor_payload(pauta)
+    if not resultado:
+        return {
+            "resultado": "Pendiente",
+            "ganador": "",
+            "winner_side": "",
+            "modo": "",
+            "estado": "pendiente",
+            "outcome": "pending",
+        }
+
+    norm_resultado = normalizar_comparacion(resultado)
+    norm_a = normalizar_comparacion(equipo_a)
+    norm_b = normalizar_comparacion(equipo_b)
+
+    if norm_a and norm_resultado == norm_a:
+        return {
+            "resultado": f"Gana {valor_payload(equipo_a)}",
+            "ganador": valor_payload(equipo_a),
+            "winner_side": "A",
+            "modo": "",
+            "estado": "jugado",
+            "outcome": "winner",
+        }
+    if norm_b and norm_resultado == norm_b:
+        return {
+            "resultado": f"Gana {valor_payload(equipo_b)}",
+            "ganador": valor_payload(equipo_b),
+            "winner_side": "B",
+            "modo": "",
+            "estado": "jugado",
+            "outcome": "winner",
+        }
+    if es_empate_pauta(resultado):
+        return {
+            "resultado": "Empate",
+            "ganador": "",
+            "winner_side": "",
+            "modo": "",
+            "estado": "jugado",
+            "outcome": "draw",
+        }
+
+    return {
+        "resultado": resultado,
+        "ganador": "",
+        "winner_side": "",
+        "modo": "",
+        "estado": "jugado",
+        "outcome": "text",
+    }
+
+
+def interpretar_resultado_eliminatoria(pauta, equipo_a, equipo_b):
+    if isinstance(pauta, (list, tuple)):
+        pasa = pauta[0] if len(pauta) > 0 else None
+        modo = pauta[1] if len(pauta) > 1 else None
+    else:
+        pasa = pauta
+        modo = None
+
+    ganador = valor_payload(pasa)
+    modo_txt = etiqueta_modo_eliminatoria(modo)
+    if not ganador:
+        return {
+            "resultado": "Pendiente",
+            "ganador": "",
+            "winner_side": "",
+            "modo": modo_txt,
+            "estado": "pendiente",
+            "outcome": "pending",
+        }
+
+    norm_ganador = normalizar_comparacion(ganador)
+    norm_a = normalizar_comparacion(equipo_a)
+    norm_b = normalizar_comparacion(equipo_b)
+    winner_side = ""
+    if norm_a and norm_ganador == norm_a:
+        winner_side = "A"
+    elif norm_b and norm_ganador == norm_b:
+        winner_side = "B"
+
+    resultado = f"Pasa {ganador}"
+    if modo_txt:
+        resultado = f"{resultado} - {modo_txt}"
+
+    return {
+        "resultado": resultado,
+        "ganador": ganador,
+        "winner_side": winner_side,
+        "modo": modo_txt,
+        "estado": "jugado",
+        "outcome": "winner",
+    }
+
+
+def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamientos_detalle_por_etapa):
+    stages = []
+    matches = {}
+
+    for etapa in etapas_ordenadas:
+        cfg = ETAPAS[etapa]
+        stages.append({
+            "id": etapa,
+            "label": etiqueta_etapa_larga(etapa),
+            "type": cfg["tipo"],
+        })
+
+        pauta_etapa = pautas_por_etapa.get(etapa)
+        enfrentamientos = enfrentamientos_detalle_por_etapa.get(etapa, [])
+        partidos = []
+
+        if pauta_etapa is None:
+            matches[etapa] = partidos
+            continue
+
+        for i in range(cfg["n_partidos"]):
+            numero_partido = i + 1
+            enfrentamiento = (
+                enfrentamientos[i]
+                if i < len(enfrentamientos)
+                else {
+                    "numero": numero_partido,
+                    "nombre": f"Partido {numero_partido}",
+                    "equipo_a": "",
+                    "equipo_b": "",
+                }
+            )
+            equipo_a = enfrentamiento.get("equipo_a", "")
+            equipo_b = enfrentamiento.get("equipo_b", "")
+            pauta = pauta_etapa[i] if i < len(pauta_etapa) else None
+
+            if cfg["tipo"] == "GRUPOS":
+                info_resultado = interpretar_resultado_grupos(pauta, equipo_a, equipo_b)
+                pauta_visible = valor_visible(pauta)
+            elif cfg["tipo"] == "ELIM":
+                info_resultado = interpretar_resultado_eliminatoria(pauta, equipo_a, equipo_b)
+                if isinstance(pauta, (list, tuple)):
+                    pasa = pauta[0] if len(pauta) > 0 else None
+                    modo = pauta[1] if len(pauta) > 1 else None
+                    pauta_visible = formatear_prediccion_elim(pasa, modo)
+                else:
+                    pauta_visible = valor_visible(pauta)
+            else:
+                info_resultado = {
+                    "resultado": "Pendiente",
+                    "ganador": "",
+                    "winner_side": "",
+                    "modo": "",
+                    "estado": "pendiente",
+                    "outcome": "pending",
+                }
+                pauta_visible = valor_visible(pauta)
+
+            partidos.append({
+                "numero": numero_partido,
+                "nombre_enfrentamiento": enfrentamiento.get("nombre") or f"Partido {numero_partido}",
+                "equipo_a": equipo_a,
+                "equipo_b": equipo_b,
+                "pauta": pauta_visible,
+                "resultado": info_resultado["resultado"],
+                "ganador": info_resultado["ganador"],
+                "winner_side": info_resultado["winner_side"],
+                "modo": info_resultado["modo"],
+                "estado": info_resultado["estado"],
+                "outcome": info_resultado["outcome"],
+            })
+
+        matches[etapa] = partidos
+
+    return {
+        "stages": stages,
+        "matches": matches,
+    }
 
 
 def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
@@ -489,11 +724,13 @@ def html_escape(x):
 
 def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       max_por_etapa, max_bonus, max_total, out_path,
-                      detalle_payload):
+                      detalle_payload, resultados_payload=None):
 
     now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
     titulo_competencia = html_escape(nombre_competencia)
     detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
+    resultados_payload = resultados_payload or {"stages": [], "matches": {}}
+    resultados_json = json.dumps(resultados_payload, ensure_ascii=False).replace("</", "<\\/")
 
     headers = ["Pos", "Nombre"] \
               + [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas] \
@@ -529,8 +766,328 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     podio_3 = top_podio(3)
 
     detalle_script = """
+<script id="resultados-data" type="application/json">__RESULTADOS_JSON__</script>
 <script id="detalle-data" type="application/json">__DETALLE_JSON__</script>
 <script>
+(function () {
+    var dataNode = document.getElementById("resultados-data");
+    var stageSelect = document.getElementById("resultados-etapa");
+    var stageLabel = document.getElementById("resultados-stage-label");
+    var stageCount = document.getElementById("resultados-stage-count");
+    var tableWrap = document.getElementById("resultados-table-wrap");
+    var tableBody = document.getElementById("resultados-body");
+    var emptyBox = document.getElementById("resultados-empty");
+    var noteBox = document.getElementById("resultados-note");
+
+    if (!dataNode || !stageSelect || !tableWrap || !tableBody || !emptyBox) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear resultados-data", e);
+        return;
+    }
+
+    var stages = payload.stages || [];
+    var matchesByStage = payload.matches || {};
+    var FLAG_BY_NAME = {
+        "ALEMANIA": "🇩🇪",
+        "ARGENTINA": "🇦🇷",
+        "ARABIA SAUDITA": "🇸🇦",
+        "ARGELIA": "🇩🇿",
+        "AUSTRIA": "🇦🇹",
+        "AUSTRALIA": "🇦🇺",
+        "BELGICA": "🇧🇪",
+        "BOLIVIA": "🇧🇴",
+        "BRASIL": "🇧🇷",
+        "CAMERUN": "🇨🇲",
+        "CANADA": "🇨🇦",
+        "CHILE": "🇨🇱",
+        "CHINA": "🇨🇳",
+        "COLOMBIA": "🇨🇴",
+        "COREA": "🇰🇷",
+        "COREA DEL SUR": "🇰🇷",
+        "COSTA DE MARFIL": "🇨🇮",
+        "COSTA RICA": "🇨🇷",
+        "CROACIA": "🇭🇷",
+        "DINAMARCA": "🇩🇰",
+        "ECUADOR": "🇪🇨",
+        "EGIPTO": "🇪🇬",
+        "EE UU": "🇺🇸",
+        "EEUU": "🇺🇸",
+        "ESCOCIA": "🏴",
+        "ESPANA": "🇪🇸",
+        "ESTADOS UNIDOS": "🇺🇸",
+        "ESTADOS UNIDOS DE AMERICA": "🇺🇸",
+        "FRANCIA": "🇫🇷",
+        "GALES": "🏴",
+        "GHANA": "🇬🇭",
+        "HOLANDA": "🇳🇱",
+        "INGLATERRA": "🏴",
+        "IRAN": "🇮🇷",
+        "ITALIA": "🇮🇹",
+        "JAPON": "🇯🇵",
+        "MARRUECOS": "🇲🇦",
+        "MEXICO": "🇲🇽",
+        "NIGERIA": "🇳🇬",
+        "NORUEGA": "🇳🇴",
+        "PAISES BAJOS": "🇳🇱",
+        "PANAMA": "🇵🇦",
+        "PARAGUAY": "🇵🇾",
+        "PERU": "🇵🇪",
+        "POLONIA": "🇵🇱",
+        "PORTUGAL": "🇵🇹",
+        "QATAR": "🇶🇦",
+        "SENEGAL": "🇸🇳",
+        "SERBIA": "🇷🇸",
+        "SUDAFRICA": "🇿🇦",
+        "SUECIA": "🇸🇪",
+        "SUIZA": "🇨🇭",
+        "TUNEZ": "🇹🇳",
+        "TURQUIA": "🇹🇷",
+        "URUGUAY": "🇺🇾",
+        "USA": "🇺🇸",
+        "VENEZUELA": "🇻🇪"
+    };
+    var COUNTRY_CODE_BY_NAME = {
+        "ALEMANIA": "de",
+        "ARGENTINA": "ar",
+        "ARABIA SAUDITA": "sa",
+        "ARGELIA": "dz",
+        "AUSTRIA": "at",
+        "AUSTRALIA": "au",
+        "BELGICA": "be",
+        "BOLIVIA": "bo",
+        "BRASIL": "br",
+        "CAMERUN": "cm",
+        "CANADA": "ca",
+        "CHILE": "cl",
+        "CHINA": "cn",
+        "COLOMBIA": "co",
+        "COREA": "kr",
+        "COREA DEL SUR": "kr",
+        "COSTA DE MARFIL": "ci",
+        "COSTA RICA": "cr",
+        "CROACIA": "hr",
+        "DINAMARCA": "dk",
+        "ECUADOR": "ec",
+        "EGIPTO": "eg",
+        "EE UU": "us",
+        "EEUU": "us",
+        "ESCOCIA": "gb-sct",
+        "ESPANA": "es",
+        "ESTADOS UNIDOS": "us",
+        "ESTADOS UNIDOS DE AMERICA": "us",
+        "FRANCIA": "fr",
+        "GALES": "gb-wls",
+        "GHANA": "gh",
+        "HOLANDA": "nl",
+        "INGLATERRA": "gb-eng",
+        "IRAN": "ir",
+        "ITALIA": "it",
+        "JAPON": "jp",
+        "MARRUECOS": "ma",
+        "MEXICO": "mx",
+        "NIGERIA": "ng",
+        "NORUEGA": "no",
+        "PAISES BAJOS": "nl",
+        "PANAMA": "pa",
+        "PARAGUAY": "py",
+        "PERU": "pe",
+        "POLONIA": "pl",
+        "PORTUGAL": "pt",
+        "QATAR": "qa",
+        "SENEGAL": "sn",
+        "SERBIA": "rs",
+        "SUDAFRICA": "za",
+        "SUECIA": "se",
+        "SUIZA": "ch",
+        "TUNEZ": "tn",
+        "TURQUIA": "tr",
+        "URUGUAY": "uy",
+        "USA": "us",
+        "VENEZUELA": "ve"
+    };
+
+    function normalizarPais(valor) {
+        var texto = String(valor || "").trim().toUpperCase();
+        if (texto.normalize) {
+            texto = texto.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+        }
+        return texto.replace(/[^A-Z0-9]+/g, " ").replace(/\\s+/g, " ").trim();
+    }
+
+    function flagPais(nombre) {
+        return FLAG_BY_NAME[normalizarPais(nombre)] || "";
+    }
+
+    function codigoPais(nombre) {
+        return COUNTRY_CODE_BY_NAME[normalizarPais(nombre)] || "";
+    }
+
+    function crearBandera(nombre) {
+        var code = codigoPais(nombre);
+        var emoji = flagPais(nombre);
+        if (code) {
+            var img = document.createElement("img");
+            img.className = "resultados-flag-img";
+            img.src = "https://flagcdn.com/24x18/" + code + ".png";
+            img.srcset = "https://flagcdn.com/48x36/" + code + ".png 2x";
+            img.alt = emoji || code.toUpperCase();
+            img.loading = "lazy";
+            img.decoding = "async";
+            img.onerror = function () {
+                var fallback = document.createElement("span");
+                fallback.className = "resultados-flag";
+                fallback.textContent = emoji || code.toUpperCase();
+                img.replaceWith(fallback);
+            };
+            return img;
+        }
+        if (emoji) {
+            var flagNode = document.createElement("span");
+            flagNode.className = "resultados-flag";
+            flagNode.textContent = emoji;
+            return flagNode;
+        }
+        return null;
+    }
+
+    function crearPais(nombre, ganador, fallback) {
+        var limpio = String(nombre || "").trim();
+        var texto = limpio || fallback || "Por definir";
+        var span = document.createElement("span");
+        span.className = "resultados-team" + (ganador ? " resultados-team-win" : "") + (!limpio ? " resultados-team-pending" : "");
+
+        var flagNode = crearBandera(limpio);
+        if (flagNode) {
+            span.appendChild(flagNode);
+        }
+
+        var nameNode = document.createElement("span");
+        nameNode.textContent = texto;
+        span.appendChild(nameNode);
+        return span;
+    }
+
+    function appendCell(tr, className) {
+        var td = document.createElement("td");
+        if (className) td.className = className;
+        tr.appendChild(td);
+        return td;
+    }
+
+    function buscarEtapaResultado(etapaId) {
+        return stages.find(function (stage) { return stage.id === etapaId; }) || null;
+    }
+
+    function renderResultadoCell(td, match, stage) {
+        var estado = match.estado || "pendiente";
+        var outcome = match.outcome || "pending";
+        var badge = document.createElement("span");
+        badge.className = "resultados-badge resultados-badge-" + (estado === "pendiente" ? "pending" : outcome);
+        badge.textContent = estado === "pendiente" ? "Pendiente" : (outcome === "draw" ? "Empate" : "Jugado");
+        td.appendChild(badge);
+
+        var line = document.createElement("div");
+        line.className = "resultados-result-line";
+        if (estado === "pendiente") {
+            line.textContent = "Pendiente";
+        } else if (outcome === "draw") {
+            line.textContent = "Empate";
+        } else if (outcome === "winner" && match.ganador) {
+            var prefix = document.createElement("span");
+            prefix.textContent = stage && stage.type === "ELIM" ? "Pasa " : "Gana ";
+            line.appendChild(prefix);
+            line.appendChild(crearPais(match.ganador, true, match.ganador));
+            if (match.modo) {
+                var modo = document.createElement("span");
+                modo.className = "resultados-mode";
+                modo.textContent = " " + match.modo;
+                line.appendChild(modo);
+            }
+        } else {
+            line.textContent = match.resultado || "Resultado";
+        }
+        td.appendChild(line);
+    }
+
+    function renderResultados() {
+        var etapaId = stageSelect.value;
+        var stage = buscarEtapaResultado(etapaId);
+        var partidos = matchesByStage[etapaId] || [];
+        tableBody.innerHTML = "";
+
+        if (stageLabel) stageLabel.textContent = stage ? stage.label : "Etapa";
+        if (stageCount) {
+            stageCount.textContent = partidos.length === 1 ? "1 partido" : String(partidos.length) + " partidos";
+        }
+
+        if (!partidos.length) {
+            tableWrap.hidden = true;
+            if (noteBox) noteBox.hidden = true;
+            emptyBox.hidden = false;
+            emptyBox.textContent = "Todavía no hay resultados cargados para esta etapa.";
+            return;
+        }
+
+        var hayJugados = partidos.some(function (match) { return match.estado === "jugado"; });
+        emptyBox.hidden = true;
+        if (noteBox) {
+            noteBox.hidden = hayJugados;
+            noteBox.textContent = "Todavía no hay resultados cargados para esta etapa.";
+        }
+
+        partidos.forEach(function (match) {
+            var tr = document.createElement("tr");
+            tr.className = "resultados-row resultados-" + (match.estado || "pendiente");
+
+            var partidoCell = appendCell(tr, "resultados-match-cell");
+            var numero = document.createElement("strong");
+            numero.textContent = "Partido " + String(match.numero || "");
+            partidoCell.appendChild(numero);
+            var nombre = document.createElement("span");
+            nombre.textContent = match.nombre_enfrentamiento || "";
+            partidoCell.appendChild(nombre);
+
+            appendCell(tr, "").appendChild(crearPais(match.equipo_a, match.winner_side === "A", "Por definir"));
+            appendCell(tr, "").appendChild(crearPais(match.equipo_b, match.winner_side === "B", "Por definir"));
+            renderResultadoCell(appendCell(tr, "resultados-result-cell"), match, stage);
+
+            tableBody.appendChild(tr);
+        });
+
+        tableWrap.hidden = false;
+    }
+
+    function llenarSelectorResultados() {
+        stageSelect.innerHTML = "";
+        if (!stages.length) {
+            var emptyOption = document.createElement("option");
+            emptyOption.value = "";
+            emptyOption.textContent = "Sin etapas disponibles";
+            stageSelect.appendChild(emptyOption);
+            stageSelect.disabled = true;
+            renderResultados();
+            return;
+        }
+
+        stages.forEach(function (stage) {
+            var option = document.createElement("option");
+            option.value = stage.id;
+            option.textContent = stage.label;
+            stageSelect.appendChild(option);
+        });
+        stageSelect.disabled = false;
+        stageSelect.value = stages[0].id;
+        renderResultados();
+    }
+
+    stageSelect.addEventListener("change", renderResultados);
+    llenarSelectorResultados();
+})();
+
 (function () {
     var dataNode = document.getElementById("detalle-data");
     if (!dataNode) return;
@@ -864,7 +1421,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     renderVacioPartido();
 })();
 </script>
-""".replace("__DETALLE_JSON__", detalle_json)
+""".replace("__DETALLE_JSON__", detalle_json).replace("__RESULTADOS_JSON__", resultados_json)
 
     html = f"""
 <!doctype html>
@@ -1088,6 +1645,158 @@ tbody tr.podio-bronce td:first-child::before {{
     font-weight: 800;
 }}
 
+.resultados-wrap {{
+    margin-top: 34px;
+    padding: 22px;
+    border-radius: 16px;
+    background: rgba(12, 22, 49, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+}}
+
+.resultados-sub {{
+    margin: -8px 0 18px 0;
+    color: var(--muted);
+    font-size: 14px;
+}}
+
+.resultados-layout {{
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}}
+
+.resultados-panel-title {{
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 10px;
+}}
+
+.resultados-panel-title strong {{
+    font-size: 16px;
+}}
+
+.resultados-count {{
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+}}
+
+.resultados-note,
+.resultados-empty {{
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--muted);
+    font-size: 14px;
+}}
+
+.resultados-note {{
+    margin-bottom: 10px;
+}}
+
+.resultados-table th,
+.resultados-table td {{
+    vertical-align: middle;
+}}
+
+.resultados-match-cell strong,
+.resultados-match-cell span {{
+    display: block;
+}}
+
+.resultados-match-cell span {{
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+}}
+
+.resultados-team {{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.25;
+    font-weight: 600;
+}}
+
+.resultados-flag {{
+    min-width: 1.45em;
+    font-size: 18px;
+    text-align: center;
+}}
+
+.resultados-flag-img {{
+    width: 24px;
+    height: 18px;
+    flex: 0 0 24px;
+    border-radius: 3px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}}
+
+.resultados-team-win {{
+    color: #91f5a8;
+    font-weight: 800;
+}}
+
+.resultados-team-pending {{
+    color: rgba(236, 242, 255, 0.55);
+    font-weight: 500;
+}}
+
+.resultados-result-cell {{
+    min-width: 170px;
+}}
+
+.resultados-badge {{
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 9px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}}
+
+.resultados-badge-winner {{
+    background: rgba(126, 242, 158, 0.14);
+    color: #91f5a8;
+    border: 1px solid rgba(126, 242, 158, 0.26);
+}}
+
+.resultados-badge-draw,
+.resultados-badge-text {{
+    background: rgba(255, 223, 87, 0.13);
+    color: #ffdf57;
+    border: 1px solid rgba(255, 223, 87, 0.25);
+}}
+
+.resultados-badge-pending {{
+    background: rgba(215, 222, 239, 0.10);
+    color: rgba(236, 242, 255, 0.62);
+    border: 1px solid rgba(215, 222, 239, 0.14);
+}}
+
+.resultados-result-line {{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}}
+
+.resultados-mode {{
+    color: var(--muted);
+}}
+
+.resultados-pendiente {{
+    opacity: 0.76;
+}}
+
 .detalle-wrap {{
     margin-top: 34px;
     padding: 22px;
@@ -1250,6 +1959,15 @@ tbody tr.podio-bronce td:first-child::before {{
         grid-template-columns: 1fr;
     }}
 
+    .resultados-layout {{
+        grid-template-columns: 1fr;
+    }}
+
+    .resultados-panel-title {{
+        align-items: flex-start;
+        flex-direction: column;
+    }}
+
     .detalle-summary {{
         grid-template-columns: 1fr;
     }}
@@ -1319,6 +2037,42 @@ tbody tr.podio-bronce td:first-child::before {{
 </tbody>
 
 </table>
+
+<section class="resultados-wrap" id="resultados-section">
+<h2 class="detalle-title">Resultados actualizados del Mundial</h2>
+<p class="resultados-sub">Resultados oficiales cargados desde la pauta.</p>
+
+<div class="resultados-layout">
+    <div class="detalle-field">
+        <label for="resultados-etapa">Etapa</label>
+        <select id="resultados-etapa" class="detalle-select">
+            <option value="">Selecciona una etapa</option>
+        </select>
+    </div>
+
+    <div class="resultados-board">
+        <div class="resultados-panel-title">
+            <strong id="resultados-stage-label">Etapa</strong>
+            <span class="resultados-count" id="resultados-stage-count">0 partidos</span>
+        </div>
+        <div id="resultados-note" class="resultados-note" hidden></div>
+        <div id="resultados-empty" class="resultados-empty" hidden></div>
+        <div class="detalle-table-wrap" id="resultados-table-wrap" hidden>
+            <table class="detalle-table resultados-table">
+                <thead>
+                    <tr>
+                        <th>Partido</th>
+                        <th>Equipo A</th>
+                        <th>Equipo B</th>
+                        <th>Resultado oficial</th>
+                    </tr>
+                </thead>
+                <tbody id="resultados-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</section>
 
 <section class="detalle-wrap" id="detalle-section">
 <h2 class="detalle-title">Detalle por participante y etapa</h2>
@@ -1509,6 +2263,7 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
             archivos_ignorados,
             enfrentamientos_por_etapa,
             campeon_real_pauta,
+            enfrentamientos_detalle_por_etapa,
         ) = cargar_pautas_desde_excel(carpeta_pauta)
     except Exception as e:
         print(f"[{nombre_competencia}] ERROR cargando pauta compartida: {e}")
@@ -1732,6 +2487,11 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
             for e in etapas_ordenadas
         },
     }
+    payload_resultados = construir_resultados_payload(
+        etapas_ordenadas=etapas_ordenadas,
+        pautas_por_etapa=pautas_por_etapa,
+        enfrentamientos_detalle_por_etapa=enfrentamientos_detalle_por_etapa,
+    )
 
     out_dir = os.path.join(OUTPUT_DIR, subcarpeta_salida)
     os.makedirs(out_dir, exist_ok=True)
@@ -1744,7 +2504,8 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         max_bonus=max_bonus,
         max_total=max_total,
         out_path=out_html,
-        detalle_payload=payload_detalle
+        detalle_payload=payload_detalle,
+        resultados_payload=payload_resultados
     )
     print(f"[{nombre_competencia}] HTML generado: {out_html}")
     return True
