@@ -722,6 +722,24 @@ def html_escape(x):
             .replace('"', "&quot;")
             .replace("'", "&#39;"))
 
+def calcular_posiciones_con_empate(participantes):
+    posiciones = []
+    pos_anterior = None
+    total_anterior = None
+
+    for idx, participante in enumerate(participantes, start=1):
+        total = participante[4]
+        if total != total_anterior:
+            pos_actual = idx
+        else:
+            pos_actual = pos_anterior
+
+        posiciones.append(pos_actual)
+        total_anterior = total
+        pos_anterior = pos_actual
+
+    return posiciones
+
 def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       max_por_etapa, max_bonus, max_total, out_path,
                       detalle_payload, resultados_payload=None):
@@ -747,23 +765,23 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
               + [bono, total]
         body_rows.append(row)
 
-    def top_podio(posicion):
-        if len(participantes) >= posicion:
-            _, nombre, _, _, total = participantes[posicion - 1]
-            return {
-                "pos": posicion,
-                "nombre": html_escape(nombre),
-                "puntos": total
-            }
+    def clase_podio_tabla(pos):
         return {
-            "pos": posicion,
-            "nombre": html_escape("Sin participante"),
-            "puntos": 0
-        }
+            1: "podio-oro",
+            2: "podio-plata",
+            3: "podio-bronce",
+        }.get(pos, "")
 
-    podio_1 = top_podio(1)
-    podio_2 = top_podio(2)
-    podio_3 = top_podio(3)
+    def render_body_row(row):
+        clase = clase_podio_tabla(row[0])
+        row_open = f"<tr class='{clase}'>" if clase else "<tr>"
+        cells = "".join(
+            f"<td class='total'>{html_escape(cell)}</td>" if i == len(row)-1 else
+            f"<td class='nombre'>{html_escape(cell)}</td>" if i == 1 else
+            f"<td>{html_escape(cell)}</td>"
+            for i, cell in enumerate(row)
+        )
+        return row_open + cells + "</tr>"
 
     detalle_script = """
 <script id="resultados-data" type="application/json">__RESULTADOS_JSON__</script>
@@ -1481,75 +1499,6 @@ body {{
     margin-bottom: 18px;
 }}
 
-.podio-wrap {{
-    margin: 18px auto 30px;
-}}
-
-.podio-title {{
-    margin: 0 0 14px 0;
-    text-align: center;
-    font-size: 20px;
-    letter-spacing: 0.4px;
-}}
-
-.podio-grid {{
-    display: grid;
-    grid-template-columns: repeat(3, minmax(170px, 1fr));
-    gap: 16px;
-    align-items: end;
-    max-width: 900px;
-    margin: 0 auto;
-}}
-
-.podio-step {{
-    border-radius: 18px 18px 10px 10px;
-    padding: 16px 12px 14px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
-}}
-
-.podio-num {{
-    font-size: clamp(42px, 6vw, 74px);
-    font-weight: 800;
-    line-height: 0.9;
-    margin-top: 6px;
-}}
-
-.podio-name {{
-    margin-top: 12px;
-    font-size: clamp(16px, 2vw, 22px);
-    font-weight: 700;
-    word-break: break-word;
-}}
-
-.podio-points {{
-    margin-top: 6px;
-    font-size: clamp(14px, 1.8vw, 18px);
-    font-weight: 600;
-    opacity: 0.95;
-}}
-
-.podio-first {{
-    min-height: 300px;
-    background: linear-gradient(180deg, var(--gold-2), var(--gold-1));
-    color: #2f2300;
-}}
-
-.podio-second {{
-    min-height: 235px;
-    background: linear-gradient(180deg, var(--silver-2), var(--silver-1));
-    color: #152033;
-}}
-
-.podio-third {{
-    min-height: 205px;
-    background: linear-gradient(180deg, var(--bronze-2), var(--bronze-1));
-    color: #28160b;
-}}
-
 .tabla-title {{
     margin: 0 0 10px 0;
     text-align: center;
@@ -1572,6 +1521,10 @@ th, td {{
     text-align: center;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     word-wrap: break-word;
+}}
+
+tbody tr:not(:last-child) td {{
+    border-bottom: 1px solid rgba(0, 0, 0, 0.28);
 }}
 
 thead tr:first-child {{
@@ -1628,21 +1581,6 @@ tbody tr.podio-oro:hover,
 tbody tr.podio-plata:hover,
 tbody tr.podio-bronce:hover {{
     filter: brightness(1.05);
-}}
-
-tbody tr.podio-oro td:first-child::before {{
-    content: "1";
-    font-weight: 800;
-}}
-
-tbody tr.podio-plata td:first-child::before {{
-    content: "2";
-    font-weight: 800;
-}}
-
-tbody tr.podio-bronce td:first-child::before {{
-    content: "3";
-    font-weight: 800;
 }}
 
 .resultados-wrap {{
@@ -1927,26 +1865,6 @@ tbody tr.podio-bronce td:first-child::before {{
 }}
 
 @media (max-width: 900px) {{
-    .podio-grid {{
-        grid-template-columns: 1fr;
-        max-width: 440px;
-    }}
-
-    .podio-first {{
-        min-height: 220px;
-        order: 1;
-    }}
-
-    .podio-second {{
-        min-height: 180px;
-        order: 2;
-    }}
-
-    .podio-third {{
-        min-height: 165px;
-        order: 3;
-    }}
-
     table {{
         font-size: 13px;
     }}
@@ -1988,26 +1906,6 @@ tbody tr.podio-bronce td:first-child::before {{
 <div class="sub">Generado: {now}</div>
 </div>
 
-<section class="podio-wrap" aria-label="Podio actual">
-<div class="podio-grid">
-<article class="podio-step podio-second">
-<div class="podio-num">{podio_2["pos"]}&deg;</div>
-<div class="podio-name">{podio_2["nombre"]}</div>
-<div class="podio-points">{podio_2["puntos"]} puntos</div>
-</article>
-<article class="podio-step podio-first">
-<div class="podio-num">{podio_1["pos"]}&deg;</div>
-<div class="podio-name">{podio_1["nombre"]}</div>
-<div class="podio-points">{podio_1["puntos"]} puntos</div>
-</article>
-<article class="podio-step podio-third">
-<div class="podio-num">{podio_3["pos"]}&deg;</div>
-<div class="podio-name">{podio_3["nombre"]}</div>
-<div class="podio-points">{podio_3["puntos"]} puntos</div>
-</article>
-</div>
-</section>
-
 <table>
 <thead>
 <tr>
@@ -2019,21 +1917,7 @@ tbody tr.podio-bronce td:first-child::before {{
 </thead>
 
 <tbody>
-{''.join(
-    (f"<tr class='podio-oro'>" if idx == 0 else
-     f"<tr class='podio-plata'>" if idx == 1 else
-     f"<tr class='podio-bronce'>" if idx == 2 else
-     "<tr>") +
-    "".join(
-        f"<td></td>" if (idx in [0,1,2] and i == 0) else
-        f"<td class='total'>{html_escape(cell)}</td>" if i == len(row)-1 else
-        f"<td class='nombre'>{html_escape(cell)}</td>" if i == 1 else
-        f"<td>{html_escape(cell)}</td>"
-        for i, cell in enumerate(row)
-    ) +
-    "</tr>"
-    for idx, row in enumerate(body_rows)
-)}
+{''.join(render_body_row(row) for row in body_rows)}
 </tbody>
 
 </table>
@@ -2439,9 +2323,11 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
 
     print("-" * len(header1))
 
+    posiciones_participantes = calcular_posiciones_con_empate(participantes)
+
     # Filas
-    for i, (pid, nombre, scores, bono, total, errores) in enumerate(participantes, start=1):
-        row = l(i, W_POS) + " " + l(nombre, W_NOMBRE) + " "
+    for pos, (pid, nombre, scores, bono, total, errores) in zip(posiciones_participantes, participantes):
+        row = l(pos, W_POS) + " " + l(nombre, W_NOMBRE) + " "
         for e in etapas_ordenadas:
             row += c(scores[e], W_ETAPA) + " "
         row += c(bono, W_BONUS) + " " + c(total, W_TOTAL)
@@ -2451,8 +2337,8 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
             print(f"  -> ERROR: {err}")
 
     participantes_html = []
-    for idx, (pid, nombre, scores, bono, total, errores) in enumerate(participantes, start=1):
-        participantes_html.append((idx, nombre, scores, bono, total))
+    for pos, (pid, nombre, scores, bono, total, errores) in zip(posiciones_participantes, participantes):
+        participantes_html.append((pos, nombre, scores, bono, total))
 
     participantes_select = [
         {"id": pid, "name": info["nombre"]}

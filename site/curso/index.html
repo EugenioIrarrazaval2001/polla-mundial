@@ -56,75 +56,6 @@ body {
     margin-bottom: 18px;
 }
 
-.podio-wrap {
-    margin: 18px auto 30px;
-}
-
-.podio-title {
-    margin: 0 0 14px 0;
-    text-align: center;
-    font-size: 20px;
-    letter-spacing: 0.4px;
-}
-
-.podio-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(170px, 1fr));
-    gap: 16px;
-    align-items: end;
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-.podio-step {
-    border-radius: 18px 18px 10px 10px;
-    padding: 16px 12px 14px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
-}
-
-.podio-num {
-    font-size: clamp(42px, 6vw, 74px);
-    font-weight: 800;
-    line-height: 0.9;
-    margin-top: 6px;
-}
-
-.podio-name {
-    margin-top: 12px;
-    font-size: clamp(16px, 2vw, 22px);
-    font-weight: 700;
-    word-break: break-word;
-}
-
-.podio-points {
-    margin-top: 6px;
-    font-size: clamp(14px, 1.8vw, 18px);
-    font-weight: 600;
-    opacity: 0.95;
-}
-
-.podio-first {
-    min-height: 300px;
-    background: linear-gradient(180deg, var(--gold-2), var(--gold-1));
-    color: #2f2300;
-}
-
-.podio-second {
-    min-height: 235px;
-    background: linear-gradient(180deg, var(--silver-2), var(--silver-1));
-    color: #152033;
-}
-
-.podio-third {
-    min-height: 205px;
-    background: linear-gradient(180deg, var(--bronze-2), var(--bronze-1));
-    color: #28160b;
-}
-
 .tabla-title {
     margin: 0 0 10px 0;
     text-align: center;
@@ -147,6 +78,10 @@ th, td {
     text-align: center;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     word-wrap: break-word;
+}
+
+tbody tr:not(:last-child) td {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.28);
 }
 
 thead tr:first-child {
@@ -203,21 +138,6 @@ tbody tr.podio-oro:hover,
 tbody tr.podio-plata:hover,
 tbody tr.podio-bronce:hover {
     filter: brightness(1.05);
-}
-
-tbody tr.podio-oro td:first-child::before {
-    content: "1";
-    font-weight: 800;
-}
-
-tbody tr.podio-plata td:first-child::before {
-    content: "2";
-    font-weight: 800;
-}
-
-tbody tr.podio-bronce td:first-child::before {
-    content: "3";
-    font-weight: 800;
 }
 
 .resultados-wrap {
@@ -502,26 +422,6 @@ tbody tr.podio-bronce td:first-child::before {
 }
 
 @media (max-width: 900px) {
-    .podio-grid {
-        grid-template-columns: 1fr;
-        max-width: 440px;
-    }
-
-    .podio-first {
-        min-height: 220px;
-        order: 1;
-    }
-
-    .podio-second {
-        min-height: 180px;
-        order: 2;
-    }
-
-    .podio-third {
-        min-height: 165px;
-        order: 3;
-    }
-
     table {
         font-size: 13px;
     }
@@ -560,28 +460,8 @@ tbody tr.podio-bronce td:first-child::before {
 <div class="wrap">
 <div class="hero">
 <h1 class="main-title">Polla curso</h1>
-<div class="sub">Generado: 2026-05-16 22:17:30</div>
+<div class="sub">Generado: 2026-05-27 15:39:34</div>
 </div>
-
-<section class="podio-wrap" aria-label="Podio actual">
-<div class="podio-grid">
-<article class="podio-step podio-second">
-<div class="podio-num">2&deg;</div>
-<div class="podio-name">Sin participante</div>
-<div class="podio-points">0 puntos</div>
-</article>
-<article class="podio-step podio-first">
-<div class="podio-num">1&deg;</div>
-<div class="podio-name">Toti</div>
-<div class="podio-points">0 puntos</div>
-</article>
-<article class="podio-step podio-third">
-<div class="podio-num">3&deg;</div>
-<div class="podio-name">Sin participante</div>
-<div class="podio-points">0 puntos</div>
-</article>
-</div>
-</section>
 
 <table>
 <thead>
@@ -594,14 +474,14 @@ tbody tr.podio-bronce td:first-child::before {
 </thead>
 
 <tbody>
-<tr class='podio-oro'><td></td><td class='nombre'>Toti</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr>
+<tr class='podio-oro'><td>1</td><td class='nombre'>Toti</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td class='total'>0</td></tr>
 </tbody>
 
 </table>
 
 <section class="resultados-wrap" id="resultados-section">
 <h2 class="detalle-title">Resultados actualizados del Mundial</h2>
-<p class="resultados-sub">Resultados oficiales con última actualización en 2026-05-16 22:17:30</p>
+<p class="resultados-sub">Resultados oficiales con última actualización en 2026-05-27 15:39:34</p>
 
 <div class="resultados-layout">
     <div class="detalle-field">
