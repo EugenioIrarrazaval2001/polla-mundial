@@ -2405,7 +2405,7 @@ def main():
         subcarpeta_salida="familia",
     )
     resultados["curso"] = generar_competencia(
-        nombre_competencia="curso",
+        nombre_competencia="Segundos Medios",
         nombre_carpeta_participantes="Participantes_Curso",
         subcarpeta_salida="curso",
     )
