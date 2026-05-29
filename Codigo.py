@@ -349,6 +349,19 @@ def valor_payload(x):
     return str(x).strip()
 
 
+def pauta_partido_tiene_resultado(partido):
+    if isinstance(partido, (list, tuple)):
+        return any(normalizar_texto(valor) != "" for valor in partido)
+    return normalizar_texto(partido) != ""
+
+
+def etapa_comenzada(pautas_por_etapa, etapa):
+    pauta = pautas_por_etapa.get(etapa)
+    if not pauta:
+        return False
+    return any(pauta_partido_tiene_resultado(partido) for partido in pauta)
+
+
 def normalizar_comparacion(x):
     txt = normalizar_texto(x)
     txt = unicodedata.normalize("NFD", txt)
@@ -1122,6 +1135,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var etapas = payload.stages || [];
     var detalles = payload.details || {};
     var etiquetasPartidos = payload.match_labels || {};
+    var MENSAJE_RONDA_NO_COMIENZA = "Ronda aún no comienza.";
 
     var participanteSel = document.getElementById("detalle-participante");
     var etapaSel = document.getElementById("detalle-etapa");
@@ -1228,6 +1242,10 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         return etapas.find(function (e) { return e.id === etapaId; }) || null;
     }
 
+    function etapaEstaComenzada(etapa) {
+        return !!(etapa && etapa.started);
+    }
+
     function etiquetaPartido(etapaId, numeroPartido) {
         var n = Number(numeroPartido);
         if (isNaN(n) || n <= 0) {
@@ -1261,9 +1279,19 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 
     function actualizarSelectorPartido() {
         var etapaId = detalle2EtapaSel.value;
+        var etapa = buscarEtapa(etapaId);
         resetSelect(detalle2PartidoSel, "Selecciona un partido");
 
         if (!etapaId) {
+            detalle2PartidoSel.disabled = true;
+            return;
+        }
+
+        if (!etapaEstaComenzada(etapa)) {
+            var pendiente = document.createElement("option");
+            pendiente.value = "";
+            pendiente.textContent = MENSAJE_RONDA_NO_COMIENZA;
+            detalle2PartidoSel.appendChild(pendiente);
             detalle2PartidoSel.disabled = true;
             return;
         }
@@ -1335,6 +1363,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         resumenParticipante.textContent = participante ? participante.name : "-";
         resumenEtapa.textContent = etapa ? etapa.label : etapaId;
 
+        if (!etapaEstaComenzada(etapa)) {
+            resumenTotal.textContent = "-";
+            renderSinDataDetalle(mostrarBonus, MENSAJE_RONDA_NO_COMIENZA);
+            content.hidden = false;
+            return;
+        }
+
         if (!detalle) {
             resumenTotal.textContent = "0 puntos";
             renderSinDataDetalle(mostrarBonus, "Sin pronóstico disponible para este participante en esta etapa.");
@@ -1360,17 +1395,32 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 
     function renderDetallePartido() {
         var etapaId = detalle2EtapaSel.value;
-        var partidoNumero = Number(detalle2PartidoSel.value);
+        var etapa = buscarEtapa(etapaId);
+        var mostrarBonus = !!(etapa && etapa.show_bonus);
         detalle2Body.innerHTML = "";
 
-        if (!etapaId || !detalle2PartidoSel.value) {
+        if (!etapaId) {
             renderVacioPartido();
             return;
         }
 
-        var etapa = buscarEtapa(etapaId);
-        var mostrarBonus = !!(etapa && etapa.show_bonus);
         renderHeaderPartido(mostrarBonus);
+        detalle2ResumenEtapa.textContent = etapa ? etapa.label : etapaId;
+
+        if (!etapaEstaComenzada(etapa)) {
+            detalle2ResumenPartido.textContent = "-";
+            detalle2ResumenResultado.textContent = "-";
+            renderSinDataPartido(mostrarBonus, MENSAJE_RONDA_NO_COMIENZA);
+            detalle2Content.hidden = false;
+            return;
+        }
+
+        if (!detalle2PartidoSel.value) {
+            renderVacioPartido();
+            return;
+        }
+
+        var partidoNumero = Number(detalle2PartidoSel.value);
 
         var filas = participantes.map(function (p) {
             var detalleEtapa = (detalles[p.id] || {})[etapaId] || null;
@@ -1401,7 +1451,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             return f.pauta && f.pauta !== "-" && f.pauta !== "Sin pauta";
         });
 
-        detalle2ResumenEtapa.textContent = etapa ? etapa.label : etapaId;
         detalle2ResumenPartido.textContent = etiquetaPartido(etapaId, partidoNumero);
         detalle2ResumenResultado.textContent = resultadoReal ? resultadoReal.pauta : "-";
 
@@ -2344,11 +2393,16 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         {"id": pid, "name": info["nombre"]}
         for pid, info in sorted(datos.items(), key=lambda x: x[1]["nombre"].upper())
     ]
+    etapas_comenzadas = {
+        e: etapa_comenzada(pautas_por_etapa, e)
+        for e in etapas_ordenadas
+    }
     etapas_select = [
         {
             "id": e,
             "label": etiqueta_etapa_larga(e),
             "show_bonus": ETAPAS[e]["tipo"] != "GRUPOS",
+            "started": etapas_comenzadas[e],
         }
         for e in etapas_ordenadas
     ]
@@ -2356,6 +2410,8 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
     for pid, info in datos.items():
         detalles_ui[pid] = {}
         for etapa in etapas_ordenadas:
+            if not etapas_comenzadas[etapa]:
+                continue
             detalle = info.get("detalle_etapas", {}).get(etapa)
             if not detalle:
                 continue
