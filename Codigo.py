@@ -778,6 +778,14 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
               + [bono, total]
         body_rows.append(row)
 
+    colgroup_html = (
+        "<colgroup>"
+        "<col class='col-pos'>"
+        "<col class='col-nombre'>"
+        + "".join("<col class='col-puntaje'>" for _ in headers[2:])
+        + "</colgroup>"
+    )
+
     def clase_podio_tabla(pos):
         return {
             1: "podio-oro",
@@ -1600,6 +1608,42 @@ td.nombre {{
     text-align: center;
 }}
 
+.tabla-posiciones col.col-pos {{
+    width: 5%;
+}}
+
+.tabla-posiciones col.col-nombre {{
+    width: 24%;
+}}
+
+.tabla-posiciones col.col-puntaje {{
+    width: auto;
+}}
+
+.tabla-posiciones th,
+.tabla-posiciones td {{
+    overflow-wrap: normal;
+    word-wrap: normal;
+}}
+
+.tabla-posiciones th:nth-child(2),
+.tabla-posiciones td.nombre {{
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    word-wrap: normal;
+    hyphens: none;
+    line-height: 1.25;
+}}
+
+.tabla-posiciones thead tr:nth-child(2) th,
+.tabla-posiciones tbody td:not(.nombre) {{
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    word-wrap: normal;
+}}
+
 /* Estilo podio dentro de la tabla existente */
 tbody tr.podio-oro {{
     background: linear-gradient(90deg, #ffd700, #ffea00, #ffd700);
@@ -1945,6 +1989,46 @@ tbody tr.podio-bronce:hover {{
     }}
 }}
 
+@media (max-width: 600px) {{
+    .tabla-posiciones {{
+        font-size: 12px;
+    }}
+
+    .tabla-posiciones col.col-nombre {{
+        width: 26%;
+    }}
+
+    .tabla-posiciones th,
+    .tabla-posiciones td {{
+        padding: 8px 4px;
+    }}
+
+    .tabla-posiciones th:first-child,
+    .tabla-posiciones td:first-child,
+    .tabla-posiciones th:nth-child(n+3),
+    .tabla-posiciones td:nth-child(n+3) {{
+        padding-left: 3px;
+        padding-right: 3px;
+    }}
+
+    .tabla-posiciones th:nth-child(2),
+    .tabla-posiciones td.nombre {{
+        font-size: 11px;
+        padding-left: 5px;
+        padding-right: 5px;
+    }}
+
+    .tabla-posiciones td.total {{
+        font-size: 13px;
+    }}
+
+    .tabla-posiciones tbody tr.podio-oro td.total,
+    .tabla-posiciones tbody tr.podio-plata td.total,
+    .tabla-posiciones tbody tr.podio-bronce td.total {{
+        font-size: 14px;
+    }}
+}}
+
 </style>
 </head>
 
@@ -1955,7 +2039,8 @@ tbody tr.podio-bronce:hover {{
 <div class="sub">Generado: {now}</div>
 </div>
 
-<table>
+<table class="tabla-posiciones">
+{colgroup_html}
 <thead>
 <tr>
 {''.join(f"<th>{h}</th>" for h in headers)}
