@@ -3,8 +3,8 @@ import re
 import json
 import sys
 import unicodedata
-from openpyxl import load_workbook
-from datetime import datetime
+from openpyxl import Workbook, load_workbook
+from datetime import datetime, date, time
 from zoneinfo import ZoneInfo
 
 # ============================================================
@@ -15,6 +15,8 @@ CARPETA = BASE_DIR
 
 OUTPUT_DIR = os.path.join(BASE_DIR, "site")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+CALENDARIO_PATH = os.path.join(BASE_DIR, "Calendario_Mundial.xlsx")
 
 CELDA_INICIAL_RESULTADO = "B4"   # donde parte el partido 1
 COL_MODO = "D"                   # en eliminatorias, el "cómo pasa" está en C4, C8, C12...
@@ -39,6 +41,66 @@ ETIQUETAS_ETAPAS = {
     "E05": "Semis",
     "E06": "Final",
 }
+CALENDARIO_HOJAS = [
+    ("E01", "E01_Grupos"),
+    ("E02", "E02_16avos"),
+    ("E03", "E03_Octavos"),
+    ("E04", "E04_Cuartos"),
+    ("E05", "E05_Semis"),
+    ("E06", "E06_Final"),
+]
+CALENDARIO_HEADERS = [
+    "numero_partido",
+    "equipo_a",
+    "equipo_b",
+    "fecha_chile",
+    "hora_chile",
+    "datetime_chile_iso",
+    "sede",
+    "notas",
+]
+CALENDARIO_E01_INICIAL = [
+    (1, "México", "Sudáfrica", "2026-06-11", "15:00", "2026-06-11T15:00:00-04:00"),
+    (2, "Estados Unidos", "Paraguay", "2026-06-12", "21:00", "2026-06-12T21:00:00-04:00"),
+    (3, "Brasil", "Marruecos", "2026-06-13", "18:00", "2026-06-13T18:00:00-04:00"),
+    (4, "Australia", "Turquía", "2026-06-14", "00:00", "2026-06-14T00:00:00-04:00"),
+    (5, "Holanda", "Japón", "2026-06-14", "16:00", "2026-06-14T16:00:00-04:00"),
+    (6, "Bélgica", "Egipto", "2026-06-15", "15:00", "2026-06-15T15:00:00-04:00"),
+    (7, "Francia", "Senegal", "2026-06-16", "15:00", "2026-06-16T15:00:00-04:00"),
+    (8, "Argentina", "Argelia", "2026-06-16", "21:00", "2026-06-16T21:00:00-04:00"),
+    (9, "Inglaterra", "Croacia", "2026-06-17", "16:00", "2026-06-17T16:00:00-04:00"),
+    (10, "México", "Corea", "2026-06-18", "21:00", "2026-06-18T21:00:00-04:00"),
+    (11, "Estados Unidos", "Australia", "2026-06-19", "15:00", "2026-06-19T15:00:00-04:00"),
+    (12, "Holanda", "Suecia", "2026-06-20", "13:00", "2026-06-20T13:00:00-04:00"),
+    (13, "Bélgica", "Irán", "2026-06-21", "15:00", "2026-06-21T15:00:00-04:00"),
+    (14, "Argentina", "Austria", "2026-06-22", "13:00", "2026-06-22T13:00:00-04:00"),
+    (15, "Noruega", "Senegal", "2026-06-22", "20:00", "2026-06-22T20:00:00-04:00"),
+    (16, "Suiza", "Canadá", "2026-06-24", "15:00", "2026-06-24T15:00:00-04:00"),
+    (17, "Ecuador", "Alemania", "2026-06-25", "16:00", "2026-06-25T16:00:00-04:00"),
+    (18, "Japón", "Suecia", "2026-06-25", "19:00", "2026-06-25T19:00:00-04:00"),
+    (19, "Turquía", "Estados Unidos", "2026-06-25", "22:00", "2026-06-25T22:00:00-04:00"),
+    (20, "Paraguay", "Australia", "2026-06-25", "22:00", "2026-06-25T22:00:00-04:00"),
+    (21, "Uruguay", "España", "2026-06-26", "20:00", "2026-06-26T20:00:00-04:00"),
+    (22, "Noruega", "Francia", "2026-06-26", "15:00", "2026-06-26T15:00:00-04:00"),
+    (23, "Egipto", "Irán", "2026-06-26", "23:00", "2026-06-26T23:00:00-04:00"),
+    (24, "Argelia", "Austria", "2026-06-27", "22:00", "2026-06-27T22:00:00-04:00"),
+    (25, "Colombia", "Portugal", "2026-06-27", "19:30", "2026-06-27T19:30:00-04:00"),
+]
+DIAS_DISPLAY = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"]
+MESES_DISPLAY = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
 
 def clave_orden_etapa(etapa):
     m = re.match(r"^E(\d{2})$", str(etapa).upper())
@@ -50,6 +112,235 @@ def etiqueta_etapa_larga(etapa):
     if str(etapa).upper() == "E01":
         nombre = "Fase de grupos"
     return nombre
+
+
+def texto_celda(valor):
+    if valor is None:
+        return ""
+    return str(valor).strip()
+
+
+def hoja_calendario_vacia(ws):
+    for row in ws.iter_rows():
+        for cell in row:
+            if texto_celda(cell.value):
+                return False
+    return True
+
+
+def calendario_tiene_filas_datos(ws):
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if any(texto_celda(valor) for valor in row):
+            return True
+    return False
+
+
+def asegurar_headers_calendario(ws):
+    if hoja_calendario_vacia(ws):
+        ws.append(CALENDARIO_HEADERS)
+        return True
+    return False
+
+
+def agregar_e01_inicial_si_corresponde(ws):
+    if calendario_tiene_filas_datos(ws):
+        return False
+
+    for numero, equipo_a, equipo_b, fecha, hora, iso in CALENDARIO_E01_INICIAL:
+        ws.append([numero, equipo_a, equipo_b, fecha, hora, iso, "", ""])
+    return True
+
+
+def normalizar_numero_partido(valor):
+    if valor is None or isinstance(valor, bool):
+        return None
+    if isinstance(valor, (int, float)):
+        numero = int(valor)
+        return numero if numero == valor or float(numero) == float(valor) else None
+
+    texto = texto_celda(valor)
+    if not texto:
+        return None
+    m = re.search(r"\d+", texto)
+    return int(m.group(0)) if m else None
+
+
+def normalizar_fecha_calendario(valor):
+    if isinstance(valor, datetime):
+        return valor.strftime("%Y-%m-%d")
+    if isinstance(valor, date):
+        return valor.strftime("%Y-%m-%d")
+
+    texto = texto_celda(valor)
+    if not texto:
+        return ""
+
+    formatos = ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y")
+    for formato in formatos:
+        try:
+            return datetime.strptime(texto, formato).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return texto
+
+
+def normalizar_hora_calendario(valor):
+    if isinstance(valor, datetime):
+        return valor.strftime("%H:%M")
+    if isinstance(valor, time):
+        return valor.strftime("%H:%M")
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        if 0 <= valor < 1:
+            minutos = int(round(valor * 24 * 60))
+            horas = (minutos // 60) % 24
+            mins = minutos % 60
+            return f"{horas:02d}:{mins:02d}"
+        if 0 <= valor < 24:
+            horas = int(valor)
+            mins = int(round((valor - horas) * 60))
+            return f"{horas:02d}:{mins:02d}"
+
+    texto = texto_celda(valor)
+    if not texto:
+        return ""
+    m = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?$", texto)
+    if m:
+        return f"{int(m.group(1)):02d}:{m.group(2)}"
+    return texto
+
+
+def parse_datetime_iso_calendario(valor):
+    if isinstance(valor, datetime):
+        dt = valor
+    else:
+        texto = texto_celda(valor)
+        if not texto:
+            return None
+        try:
+            dt = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("America/Santiago"))
+    return dt
+
+
+def normalizar_iso_calendario(valor):
+    dt = parse_datetime_iso_calendario(valor)
+    if dt:
+        return dt.isoformat(timespec="seconds")
+    return texto_celda(valor)
+
+
+def construir_iso_calendario(fecha_chile, hora_chile):
+    if not fecha_chile or not hora_chile:
+        return ""
+    try:
+        dt = datetime.strptime(f"{fecha_chile} {hora_chile}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return ""
+    dt = dt.replace(tzinfo=ZoneInfo("America/Santiago"))
+    return dt.isoformat(timespec="seconds")
+
+
+def datetime_calendario_para_display(fecha_chile, hora_chile, datetime_chile_iso):
+    dt = parse_datetime_iso_calendario(datetime_chile_iso)
+    if dt:
+        return dt
+    if fecha_chile and hora_chile:
+        try:
+            return datetime.strptime(f"{fecha_chile} {hora_chile}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            return None
+    return None
+
+
+def formatear_fecha_hora_display(fecha_chile, hora_chile, datetime_chile_iso):
+    dt = datetime_calendario_para_display(fecha_chile, hora_chile, datetime_chile_iso)
+    if not dt:
+        return "Horario por confirmar"
+
+    hora_display = hora_chile or dt.strftime("%H:%M")
+    mes_display = MESES_DISPLAY.get(dt.month, "")
+    return f"{DIAS_DISPLAY[dt.weekday()]} {dt.day} {mes_display} · {hora_display}"
+
+
+def preparar_y_cargar_calendario():
+    if os.path.exists(CALENDARIO_PATH):
+        wb = load_workbook(CALENDARIO_PATH)
+        cambiado = False
+    else:
+        wb = Workbook()
+        wb.active.title = CALENDARIO_HOJAS[0][1]
+        cambiado = True
+
+    for idx, (etapa, nombre_hoja) in enumerate(CALENDARIO_HOJAS):
+        if nombre_hoja in wb.sheetnames:
+            ws = wb[nombre_hoja]
+        else:
+            ws = wb.create_sheet(title=nombre_hoja, index=idx)
+            cambiado = True
+
+        if asegurar_headers_calendario(ws):
+            cambiado = True
+        if etapa == "E01" and agregar_e01_inicial_si_corresponde(ws):
+            cambiado = True
+
+    if cambiado:
+        wb.save(CALENDARIO_PATH)
+
+    calendario = {etapa: {} for etapa, _ in CALENDARIO_HOJAS}
+    hoja_por_etapa = dict(CALENDARIO_HOJAS)
+
+    for etapa, nombre_hoja in hoja_por_etapa.items():
+        if nombre_hoja not in wb.sheetnames:
+            continue
+
+        ws = wb[nombre_hoja]
+        headers = {
+            texto_celda(cell.value).lower(): idx
+            for idx, cell in enumerate(ws[1])
+            if texto_celda(cell.value)
+        }
+        if "numero_partido" not in headers:
+            continue
+
+        def valor_columna(row, nombre):
+            idx = headers.get(nombre)
+            if idx is None or idx >= len(row):
+                return None
+            return row[idx]
+
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not any(texto_celda(valor) for valor in row):
+                continue
+
+            numero = normalizar_numero_partido(valor_columna(row, "numero_partido"))
+            if numero is None:
+                continue
+
+            fecha_chile = normalizar_fecha_calendario(valor_columna(row, "fecha_chile"))
+            hora_chile = normalizar_hora_calendario(valor_columna(row, "hora_chile"))
+            datetime_chile_iso = normalizar_iso_calendario(valor_columna(row, "datetime_chile_iso"))
+            if not datetime_chile_iso and fecha_chile and hora_chile:
+                datetime_chile_iso = construir_iso_calendario(fecha_chile, hora_chile)
+
+            calendario[etapa][numero] = {
+                "fecha_chile": fecha_chile,
+                "hora_chile": hora_chile,
+                "datetime_chile_iso": datetime_chile_iso,
+                "fecha_hora_display": formatear_fecha_hora_display(
+                    fecha_chile,
+                    hora_chile,
+                    datetime_chile_iso,
+                ),
+                "sort_key": datetime_chile_iso,
+                "sede": texto_celda(valor_columna(row, "sede")),
+                "notas": texto_celda(valor_columna(row, "notas")),
+            }
+
+    return calendario
 
 # ============================================================
 # BONUS CAMPEÓN
@@ -549,9 +840,10 @@ def interpretar_resultado_eliminatoria(pauta, equipo_a, equipo_b):
     }
 
 
-def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamientos_detalle_por_etapa):
+def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamientos_detalle_por_etapa, calendario_por_etapa=None):
     stages = []
     matches = {}
+    calendario_por_etapa = calendario_por_etapa or {}
 
     for etapa in etapas_ordenadas:
         cfg = ETAPAS[etapa]
@@ -563,6 +855,7 @@ def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamie
 
         pauta_etapa = pautas_por_etapa.get(etapa)
         enfrentamientos = enfrentamientos_detalle_por_etapa.get(etapa, [])
+        calendario_etapa = calendario_por_etapa.get(etapa, {})
         partidos = []
 
         if pauta_etapa is None:
@@ -584,6 +877,7 @@ def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamie
             equipo_a = enfrentamiento.get("equipo_a", "")
             equipo_b = enfrentamiento.get("equipo_b", "")
             pauta = pauta_etapa[i] if i < len(pauta_etapa) else None
+            datos_calendario = calendario_etapa.get(numero_partido, {})
 
             if cfg["tipo"] == "GRUPOS":
                 info_resultado = interpretar_resultado_grupos(pauta, equipo_a, equipo_b)
@@ -612,6 +906,13 @@ def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamie
                 "nombre_enfrentamiento": enfrentamiento.get("nombre") or f"Partido {numero_partido}",
                 "equipo_a": equipo_a,
                 "equipo_b": equipo_b,
+                "fecha_chile": datos_calendario.get("fecha_chile", ""),
+                "hora_chile": datos_calendario.get("hora_chile", ""),
+                "datetime_chile_iso": datos_calendario.get("datetime_chile_iso", ""),
+                "fecha_hora_display": datos_calendario.get("fecha_hora_display", "Horario por confirmar"),
+                "sort_key": datos_calendario.get("sort_key", ""),
+                "sede": datos_calendario.get("sede", ""),
+                "notas": datos_calendario.get("notas", ""),
                 "pauta": pauta_visible,
                 "resultado": info_resultado["resultado"],
                 "ganador": info_resultado["ganador"],
@@ -1078,7 +1379,24 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             noteBox.textContent = "Todavía no hay resultados cargados para esta etapa.";
         }
 
-        partidos.forEach(function (match) {
+        var partidosOrdenados = partidos.slice().sort(function (a, b) {
+            var aTime = Date.parse(String(a.sort_key || "").trim());
+            var bTime = Date.parse(String(b.sort_key || "").trim());
+            var aTieneHorario = !isNaN(aTime);
+            var bTieneHorario = !isNaN(bTime);
+            var aNumero = Number(a.numero || 0);
+            var bNumero = Number(b.numero || 0);
+
+            if (aTieneHorario && bTieneHorario) {
+                if (aTime !== bTime) return aTime - bTime;
+                return aNumero - bNumero;
+            }
+            if (aTieneHorario) return -1;
+            if (bTieneHorario) return 1;
+            return aNumero - bNumero;
+        });
+
+        partidosOrdenados.forEach(function (match) {
             var tr = document.createElement("tr");
             tr.className = "resultados-row resultados-" + (match.estado || "pendiente");
 
@@ -1086,9 +1404,17 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             var numero = document.createElement("strong");
             numero.textContent = "Partido " + String(match.numero || "");
             partidoCell.appendChild(numero);
-            var nombre = document.createElement("span");
-            nombre.textContent = match.nombre_enfrentamiento || "";
-            partidoCell.appendChild(nombre);
+            var horario = document.createElement("span");
+            horario.className = "resultados-schedule-line";
+            horario.textContent = match.fecha_hora_display || "Horario por confirmar";
+            partidoCell.appendChild(horario);
+            var sede = String(match.sede || "").trim();
+            if (sede) {
+                var sedeNode = document.createElement("span");
+                sedeNode.className = "resultados-venue-line";
+                sedeNode.textContent = sede;
+                partidoCell.appendChild(sedeNode);
+            }
 
             appendCell(tr, "").appendChild(crearPais(match.equipo_a, match.winner_side === "A", "Por definir"));
             appendCell(tr, "").appendChild(crearPais(match.equipo_b, match.winner_side === "B", "Por definir"));
@@ -1746,6 +2072,20 @@ tbody tr.podio-bronce:hover {{
     font-size: 12px;
 }}
 
+.resultados-match-cell .resultados-schedule-line {{
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.25;
+}}
+
+.resultados-match-cell .resultados-venue-line {{
+    margin-top: 2px;
+    color: rgba(236, 242, 255, 0.50);
+    font-size: 11px;
+    line-height: 1.25;
+}}
+
 .resultados-team {{
     display: inline-flex;
     align-items: center;
@@ -2079,7 +2419,7 @@ tbody tr.podio-bronce:hover {{
             <table class="detalle-table resultados-table">
                 <thead>
                     <tr>
-                        <th>Partido</th>
+                        <th>Partido / horario</th>
                         <th>Equipo A</th>
                         <th>Equipo B</th>
                         <th>Resultado oficial</th>
@@ -2260,7 +2600,7 @@ a:hover {
         f.write(html)
 
 
-def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcarpeta_salida):
+def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcarpeta_salida, calendario_por_etapa=None):
     nombre_competencia = str(nombre_competencia).strip()
     titulo_competencia = (
         nombre_competencia
@@ -2518,6 +2858,7 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         etapas_ordenadas=etapas_ordenadas,
         pautas_por_etapa=pautas_por_etapa,
         enfrentamientos_detalle_por_etapa=enfrentamientos_detalle_por_etapa,
+        calendario_por_etapa=calendario_por_etapa,
     )
 
     out_dir = os.path.join(OUTPUT_DIR, subcarpeta_salida)
@@ -2539,16 +2880,20 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
 
 
 def main():
+    calendario_por_etapa = preparar_y_cargar_calendario()
+
     resultados = {}
     resultados["familia"] = generar_competencia(
         nombre_competencia="familia",
         nombre_carpeta_participantes="Participantes_Familia",
         subcarpeta_salida="familia",
+        calendario_por_etapa=calendario_por_etapa,
     )
     resultados["curso"] = generar_competencia(
         nombre_competencia="Segundos Medios",
         nombre_carpeta_participantes="Participantes_Curso",
         subcarpeta_salida="curso",
+        calendario_por_etapa=calendario_por_etapa,
     )
 
     out_portada = os.path.join(OUTPUT_DIR, "index.html")
