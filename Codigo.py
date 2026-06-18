@@ -653,6 +653,38 @@ def etapa_comenzada(pautas_por_etapa, etapa):
     return any(pauta_partido_tiene_resultado(partido) for partido in pauta)
 
 
+def pauta_partido_finalizado(etapa, partido):
+    cfg = ETAPAS[etapa]
+    if cfg["tipo"] == "GRUPOS":
+        return normalizar_texto(partido) != ""
+
+    if cfg["tipo"] == "ELIM":
+        if isinstance(partido, (list, tuple)):
+            pasa_real = partido[0] if len(partido) > 0 else None
+            modo_real = partido[1] if len(partido) > 1 else None
+        else:
+            pasa_real = partido
+            modo_real = None
+        return normalizar_texto(pasa_real) != "" and normalizar_texto(modo_real) != ""
+
+    return False
+
+
+def etapa_finalizada(pautas_por_etapa, etapa):
+    pauta = pautas_por_etapa.get(etapa)
+    if not pauta:
+        return False
+
+    cfg = ETAPAS[etapa]
+    if len(pauta) < cfg["n_partidos"]:
+        return False
+
+    return all(
+        pauta_partido_finalizado(etapa, partido)
+        for partido in pauta[:cfg["n_partidos"]]
+    )
+
+
 def normalizar_comparacion(x):
     txt = normalizar_texto(x)
     txt = unicodedata.normalize("NFD", txt)
@@ -1054,15 +1086,108 @@ def calcular_posiciones_con_empate(participantes):
 
     return posiciones
 
+
+def calcular_puntos_repartidos(pautas_por_etapa, campeon_real_oficial, max_por_etapa, max_bonus):
+    puntos_repartidos = 0
+
+    for etapa, cfg in ETAPAS.items():
+        pauta = pautas_por_etapa.get(etapa)
+        if not pauta:
+            continue
+
+        puntos_etapa = 0
+        if cfg["tipo"] == "GRUPOS":
+            for resultado_real in pauta[:cfg["n_partidos"]]:
+                if normalizar_texto(resultado_real) != "":
+                    puntos_etapa += cfg["ppp"]
+        elif cfg["tipo"] == "ELIM":
+            for item in pauta[:cfg["n_partidos"]]:
+                if isinstance(item, (list, tuple)):
+                    pasa_real = item[0] if len(item) > 0 else None
+                    modo_real = item[1] if len(item) > 1 else None
+                else:
+                    pasa_real = item
+                    modo_real = None
+
+                if normalizar_texto(pasa_real) == "":
+                    continue
+
+                puntos_etapa += cfg["ppp"]
+                if normalizar_texto(modo_real) != "":
+                    puntos_etapa += 1
+
+        puntos_repartidos += min(puntos_etapa, max_por_etapa.get(etapa, puntos_etapa))
+
+    if normalizar_texto(campeon_real_oficial) != "":
+        puntos_repartidos += max_bonus
+
+    return puntos_repartidos
+
+
+def formatear_porcentaje_avance(porcentaje):
+    porcentaje_redondeado = round(float(porcentaje), 1)
+    if porcentaje_redondeado.is_integer():
+        return f"{int(porcentaje_redondeado)}%"
+    return f"{porcentaje_redondeado:.1f}%".replace(".", ",")
+
+
+def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizadas):
+    medallas = {
+        1: {"medal": "🥇", "class": "stage-gold"},
+        2: {"medal": "🥈", "class": "stage-silver"},
+        3: {"medal": "🥉", "class": "stage-bronze"},
+    }
+    podios_por_etapa = {}
+
+    for etapa in etapas_ordenadas:
+        if not etapas_finalizadas.get(etapa):
+            continue
+
+        puntajes = []
+        for pid, nombre, scores, bono, total, errores in participantes:
+            puntaje = scores.get(etapa, 0)
+            if puntaje > 0:
+                puntajes.append((pid, puntaje))
+
+        if not puntajes:
+            continue
+
+        puntajes_distintos = sorted({puntaje for pid, puntaje in puntajes}, reverse=True)
+        rank_por_puntaje = {
+            puntaje: rank
+            for rank, puntaje in enumerate(puntajes_distintos[:3], start=1)
+        }
+
+        for pid, puntaje in puntajes:
+            rank_actual = rank_por_puntaje.get(puntaje)
+            if rank_actual not in medallas:
+                continue
+
+            info_medalla = medallas[rank_actual]
+            podios_por_etapa.setdefault(pid, {})[etapa] = {
+                "rank": rank_actual,
+                "medal": info_medalla["medal"],
+                "class": info_medalla["class"],
+                "title": f"{rank_actual}° lugar en {ETIQUETAS_ETAPAS.get(etapa, etapa)}",
+            }
+
+    return podios_por_etapa
+
+
 def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       max_por_etapa, max_bonus, max_total, out_path,
-                      detalle_payload, resultados_payload=None):
+                      detalle_payload, resultados_payload=None,
+                      puntos_repartidos=0, porcentaje_avance=0,
+                      podios_por_etapa=None):
 
     now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
     titulo_competencia = html_escape(nombre_competencia)
     detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
     resultados_payload = resultados_payload or {"stages": [], "matches": {}}
     resultados_json = json.dumps(resultados_payload, ensure_ascii=False).replace("</", "<\\/")
+    porcentaje_display = formatear_porcentaje_avance(porcentaje_avance)
+    progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
+    podios_por_etapa = podios_por_etapa or {}
 
     headers = ["Pos", "Nombre"] \
               + [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas] \
@@ -1073,11 +1198,15 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
               + [f"Max={max_bonus}", f"Max={max_total}"]
 
     body_rows = []
-    for pos, nombre, scores, bono, total in participantes:
-        row = [pos, nombre] \
-              + [scores[e] for e in etapas_ordenadas] \
-              + [bono, total]
-        body_rows.append(row)
+    for pid, pos, nombre, scores, bono, total in participantes:
+        body_rows.append({
+            "pid": pid,
+            "pos": pos,
+            "nombre": nombre,
+            "scores": scores,
+            "bono": bono,
+            "total": total,
+        })
 
     colgroup_html = (
         "<colgroup>"
@@ -1094,16 +1223,35 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             3: "podio-bronce",
         }.get(pos, "")
 
-    def render_body_row(row):
-        clase = clase_podio_tabla(row[0])
-        row_open = f"<tr class='{clase}'>" if clase else "<tr>"
-        cells = "".join(
-            f"<td class='total'>{html_escape(cell)}</td>" if i == len(row)-1 else
-            f"<td class='nombre'>{html_escape(cell)}</td>" if i == 1 else
-            f"<td>{html_escape(cell)}</td>"
-            for i, cell in enumerate(row)
+    def render_stage_score(pid, etapa, puntaje):
+        podio = podios_por_etapa.get(pid, {}).get(etapa)
+        if not podio:
+            return html_escape(puntaje)
+
+        clase = podio["class"]
+        title = html_escape(podio["title"])
+        medal = podio["medal"]
+        return (
+            f"<span class='stage-score {clase}' title='{title}'>"
+            f"<span class='stage-score-value'>{html_escape(puntaje)}</span>"
+            f"<span class='stage-medal' aria-hidden='true'>{medal}</span>"
+            "</span>"
         )
-        return row_open + cells + "</tr>"
+
+    def render_body_row(row):
+        clase = clase_podio_tabla(row["pos"])
+        row_open = f"<tr class='{clase}'>" if clase else "<tr>"
+        cells = [
+            f"<td>{html_escape(row['pos'])}</td>",
+            f"<td class='nombre'>{html_escape(row['nombre'])}</td>",
+        ]
+        for etapa in etapas_ordenadas:
+            cells.append(
+                f"<td>{render_stage_score(row['pid'], etapa, row['scores'].get(etapa, 0))}</td>"
+            )
+        cells.append(f"<td>{html_escape(row['bono'])}</td>")
+        cells.append(f"<td class='total'>{html_escape(row['total'])}</td>")
+        return row_open + "".join(cells) + "</tr>"
 
     detalle_script = """
 <script id="resultados-data" type="application/json">__RESULTADOS_JSON__</script>
@@ -1889,6 +2037,52 @@ body {{
     letter-spacing: 0.3px;
 }}
 
+.tabla-topbar {{
+    display: flex;
+    justify-content: flex-end;
+    margin: 0 0 12px 0;
+}}
+
+.avance-card {{
+    width: min(280px, 100%);
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(12, 22, 49, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+}}
+
+.avance-label {{
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}}
+
+.avance-percent {{
+    color: #ffffff;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+}}
+
+.avance-progress {{
+    height: 9px;
+    margin-top: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.34);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}}
+
+.avance-progress-fill {{
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #50d991, #ffdf57);
+}}
+
 table {{
     width: 100%;
     border-collapse: collapse;
@@ -1932,6 +2126,45 @@ td.total {{
 
 td.nombre {{
     text-align: center;
+}}
+
+.stage-score {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 1px 5px;
+    background: rgba(255, 255, 255, 0.06);
+}}
+
+.stage-medal {{
+    font-size: 14px;
+    line-height: 1;
+}}
+
+.stage-gold {{
+    color: #ffdf57;
+    font-weight: 800;
+}}
+
+.stage-silver {{
+    color: #dfe7f5;
+    font-weight: 800;
+}}
+
+.stage-bronze {{
+    color: #e6a15a;
+    font-weight: 800;
+}}
+
+tbody tr.podio-oro .stage-score,
+tbody tr.podio-plata .stage-score,
+tbody tr.podio-bronce .stage-score {{
+    color: #111827;
+    background: rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }}
 
 .tabla-posiciones col.col-pos {{
@@ -2327,9 +2560,22 @@ tbody tr.podio-bronce:hover {{
     .detalle-table td {{
         font-size: 13px;
     }}
+
+    .tabla-topbar {{
+        justify-content: center;
+    }}
 }}
 
 @media (max-width: 600px) {{
+    .tabla-topbar {{
+        justify-content: stretch;
+    }}
+
+    .avance-card {{
+        width: 100%;
+        box-sizing: border-box;
+    }}
+
     .tabla-posiciones {{
         font-size: 12px;
     }}
@@ -2367,6 +2613,16 @@ tbody tr.podio-bronce:hover {{
     .tabla-posiciones tbody tr.podio-bronce td.total {{
         font-size: 14px;
     }}
+
+    .stage-score {{
+        gap: 2px;
+        padding-left: 3px;
+        padding-right: 3px;
+    }}
+
+    .stage-medal {{
+        font-size: 12px;
+    }}
 }}
 
 </style>
@@ -2377,6 +2633,16 @@ tbody tr.podio-bronce:hover {{
 <div class="hero">
 <h1 class="main-title">{titulo_competencia}</h1>
 <div class="sub">Generado: {now}</div>
+</div>
+
+<div class="tabla-topbar">
+    <div class="avance-card" aria-label="Avance del Mundial">
+        <div class="avance-label">Avance del Mundial (% de puntos repartidos)</div>
+        <div class="avance-percent">{porcentaje_display}</div>
+        <div class="avance-progress" aria-hidden="true">
+            <div class="avance-progress-fill" style="width: {progreso_width:.1f}%;"></div>
+        </div>
+    </div>
 </div>
 
 <table class="tabla-posiciones">
@@ -2764,6 +3030,14 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
     else:
         print(f"\n[{nombre_competencia}] Aviso: no hay campeón oficial en E01Pauta (B4 vacío). No se asignará Bono Campeón.")
 
+    puntos_repartidos = calcular_puntos_repartidos(
+        pautas_por_etapa=pautas_por_etapa,
+        campeon_real_oficial=campeon_real_oficial,
+        max_por_etapa=max_por_etapa,
+        max_bonus=max_bonus,
+    )
+    porcentaje_avance = (puntos_repartidos / max_total * 100) if max_total else 0
+
     # 5) Ranking general (sin grupos)
     participantes = []
 
@@ -2812,7 +3086,7 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
 
     participantes_html = []
     for pos, (pid, nombre, scores, bono, total, errores) in zip(posiciones_participantes, participantes):
-        participantes_html.append((pos, nombre, scores, bono, total))
+        participantes_html.append((pid, pos, nombre, scores, bono, total))
 
     participantes_select = [
         {"id": pid, "name": info["nombre"]}
@@ -2822,6 +3096,15 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         e: etapa_comenzada(pautas_por_etapa, e)
         for e in etapas_ordenadas
     }
+    etapas_finalizadas = {
+        e: etapa_finalizada(pautas_por_etapa, e)
+        for e in etapas_ordenadas
+    }
+    podios_por_etapa = calcular_podios_por_etapa(
+        participantes=participantes,
+        etapas_ordenadas=etapas_ordenadas,
+        etapas_finalizadas=etapas_finalizadas,
+    )
     etapas_select = [
         {
             "id": e,
@@ -2873,7 +3156,10 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         max_total=max_total,
         out_path=out_html,
         detalle_payload=payload_detalle,
-        resultados_payload=payload_resultados
+        resultados_payload=payload_resultados,
+        puntos_repartidos=puntos_repartidos,
+        porcentaje_avance=porcentaje_avance,
+        podios_por_etapa=podios_por_etapa,
     )
     print(f"[{nombre_competencia}] HTML generado: {out_html}")
     return True
