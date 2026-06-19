@@ -1660,6 +1660,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     function renderHeaderDetalle(mostrarBonus) {
         detalleHead.innerHTML = "";
         var headers = [
+            { text: "Partido", cls: "" },
             { text: "Pronóstico participante", cls: "" },
             { text: "Resultado Real", cls: "" },
             { text: "Puntos por acertar resultado", cls: "num" }
@@ -1704,7 +1705,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         detalleBody.innerHTML = "";
         var tr = document.createElement("tr");
         var td = document.createElement("td");
-        td.colSpan = mostrarBonus ? 5 : 4;
+        td.colSpan = mostrarBonus ? 6 : 5;
         td.textContent = mensaje;
         tr.appendChild(td);
         detalleBody.appendChild(tr);
@@ -1862,6 +1863,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         resumenTotal.textContent = String(detalle.total) + " puntos";
         (detalle.partidos || []).forEach(function (partido) {
             var tr = document.createElement("tr");
+            appendCell(tr, etiquetaPartido(etapaId, partido.partido), "partido-cell");
             appendCell(tr, partido.pronostico || "-", "");
             appendCell(tr, partido.pauta || "-", "");
             appendCell(tr, String(partido.puntos_exactitud || 0), clasePuntos(partido.puntos_exactitud || 0));
@@ -2512,6 +2514,12 @@ tbody tr.podio-bronce:hover {{
 .detalle-table td.num {{
     text-align: center;
     white-space: nowrap;
+}}
+
+.detalle-table td.partido-cell {{
+    min-width: 180px;
+    color: #dfe7f5;
+    font-weight: 700;
 }}
 
 .detalle-table th.num {{
