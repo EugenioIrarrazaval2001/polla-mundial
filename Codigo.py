@@ -1214,13 +1214,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
     podios_por_etapa = podios_por_etapa or {}
 
-    headers = ["Pos", "Nombre"] \
+    headers = ["Pos", "Nombre", "Total"] \
               + [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas] \
-              + [NOMBRE_COLUMNA_BONUS, "Total"]
+              + [NOMBRE_COLUMNA_BONUS]
 
-    max_row = ["", ""] \
+    max_row = ["", "", f"Max={max_total}"] \
               + [f"Max={max_por_etapa[e]}" for e in etapas_ordenadas] \
-              + [f"Max={max_bonus}", f"Max={max_total}"]
+              + [f"Max={max_bonus}"]
 
     body_rows = []
     for pid, pos, nombre, scores, bono, total in participantes:
@@ -1237,9 +1237,14 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "<colgroup>"
         "<col class='col-pos'>"
         "<col class='col-nombre'>"
-        + "".join("<col class='col-puntaje'>" for _ in headers[2:])
+        "<col class='col-total'>"
+        + "".join("<col class='col-puntaje'>" for _ in headers[3:])
         + "</colgroup>"
     )
+
+    def render_header_cell(text, idx):
+        clase = " class='total'" if idx == 2 else ""
+        return f"<th{clase}>{text}</th>"
 
     def clase_podio_tabla(pos):
         return {
@@ -1269,13 +1274,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         cells = [
             f"<td>{html_escape(row['pos'])}</td>",
             f"<td class='nombre'>{html_escape(row['nombre'])}</td>",
+            f"<td class='total'>{html_escape(row['total'])}</td>",
         ]
         for etapa in etapas_ordenadas:
             cells.append(
                 f"<td>{render_stage_score(row['pid'], etapa, row['scores'].get(etapa, 0))}</td>"
             )
         cells.append(f"<td>{html_escape(row['bono'])}</td>")
-        cells.append(f"<td class='total'>{html_escape(row['total'])}</td>")
         return row_open + "".join(cells) + "</tr>"
 
     detalle_script = """
@@ -2184,9 +2189,20 @@ tbody tr:hover {{
     background: rgba(255,255,255,0.05);
 }}
 
-td.total {{
-    font-weight: bold;
+.tabla-posiciones th.total,
+.tabla-posiciones td.total {{
+    font-weight: 800;
     font-size: 16px;
+    color: #ffdf57;
+    background: rgba(255, 223, 87, 0.10);
+    box-shadow:
+        inset 1px 0 rgba(255, 223, 87, 0.22),
+        inset -1px 0 rgba(255, 223, 87, 0.22);
+}}
+
+.tabla-posiciones thead th.total {{
+    color: #111827;
+    background: #ffdf57;
 }}
 
 td.nombre {{
@@ -2237,7 +2253,11 @@ tbody tr.podio-bronce .stage-score {{
 }}
 
 .tabla-posiciones col.col-nombre {{
-    width: 24%;
+    width: 22%;
+}}
+
+.tabla-posiciones col.col-total {{
+    width: 9%;
 }}
 
 .tabla-posiciones col.col-puntaje {{
@@ -2292,6 +2312,11 @@ tbody tr.podio-plata td.total,
 tbody tr.podio-bronce td.total {{
     font-size: 18px;
     font-weight: 800;
+    color: #111827;
+    background: rgba(255, 255, 255, 0.36);
+    box-shadow:
+        inset 1px 0 rgba(0, 0, 0, 0.16),
+        inset -1px 0 rgba(0, 0, 0, 0.16);
 }}
 
 tbody tr.podio-oro:hover,
@@ -2652,7 +2677,11 @@ tbody tr.podio-bronce:hover {{
     }}
 
     .tabla-posiciones col.col-nombre {{
-        width: 26%;
+        width: 23%;
+    }}
+
+    .tabla-posiciones col.col-total {{
+        width: 10%;
     }}
 
     .tabla-posiciones th,
@@ -2675,6 +2704,7 @@ tbody tr.podio-bronce:hover {{
         padding-right: 5px;
     }}
 
+    .tabla-posiciones th.total,
     .tabla-posiciones td.total {{
         font-size: 13px;
     }}
@@ -2720,10 +2750,10 @@ tbody tr.podio-bronce:hover {{
 {colgroup_html}
 <thead>
 <tr>
-{''.join(f"<th>{h}</th>" for h in headers)}
+{''.join(render_header_cell(h, i) for i, h in enumerate(headers))}
 </tr>
 <tr>
-{''.join(f"<th>{v}</th>" for v in max_row)}
+{''.join(render_header_cell(v, i) for i, v in enumerate(max_row))}
 </tr>
 </thead>
 
@@ -3127,17 +3157,17 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
     print("=" * ancho_tabla)
 
     # Header fila 1
-    header1 = l("Pos", W_POS) + " " + l("Nombre", W_NOMBRE) + " "
+    header1 = l("Pos", W_POS) + " " + l("Nombre", W_NOMBRE) + " " + c("Total", W_TOTAL) + " "
     for e in etapas_ordenadas:
         header1 += c(ETIQUETAS_ETAPAS[e], W_ETAPA) + " "
-    header1 += c(NOMBRE_COLUMNA_BONUS, W_BONUS) + " " + c("Total", W_TOTAL)
+    header1 += c(NOMBRE_COLUMNA_BONUS, W_BONUS)
     print(header1)
 
     # Header fila 2 (máximos)
-    header2 = (" " * W_POS) + " " + (" " * W_NOMBRE) + " "
+    header2 = (" " * W_POS) + " " + (" " * W_NOMBRE) + " " + c(f"Max={max_total}", W_TOTAL) + " "
     for e in etapas_ordenadas:
         header2 += c(f"Max={max_por_etapa[e]}", W_ETAPA) + " "
-    header2 += c(f"Max={max_bonus}", W_BONUS) + " " + c(f"Max={max_total}", W_TOTAL)
+    header2 += c(f"Max={max_bonus}", W_BONUS)
     print(header2)
 
     print("-" * len(header1))
@@ -3146,10 +3176,10 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
 
     # Filas
     for pos, (pid, nombre, scores, bono, total, errores) in zip(posiciones_participantes, participantes):
-        row = l(pos, W_POS) + " " + l(nombre, W_NOMBRE) + " "
+        row = l(pos, W_POS) + " " + l(nombre, W_NOMBRE) + " " + c(total, W_TOTAL) + " "
         for e in etapas_ordenadas:
             row += c(scores[e], W_ETAPA) + " "
-        row += c(bono, W_BONUS) + " " + c(total, W_TOTAL)
+        row += c(bono, W_BONUS)
         print(row)
 
         for err in errores:
