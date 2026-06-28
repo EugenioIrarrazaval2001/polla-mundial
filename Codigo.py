@@ -602,6 +602,21 @@ def normalizar_texto(x):
     return " ".join(str(x).strip().split()).upper()
 
 
+def texto_ganador_sin_prefijo(x):
+    txt = "" if x is None else str(x).strip()
+    if not txt:
+        return ""
+    return re.sub(r"(?i)^\s*(?:pasa|gana|clasifica|avanza)\b[\s:.-]*", "", txt, count=1).strip()
+
+
+def texto_pasa_eliminatoria(x):
+    return texto_ganador_sin_prefijo(x)
+
+
+def normalizar_pasa_eliminatoria(x):
+    return normalizar_texto(texto_pasa_eliminatoria(x))
+
+
 def puntaje_grupos(apuestas, pauta):
     pts = 0
     for a, r in zip(apuestas, pauta):
@@ -620,7 +635,7 @@ def puntaje_eliminatoria(apuestas, pauta, ppp):
     pts = 0
 
     for (pasa, modo), (pasa_real, modo_real) in zip(apuestas, pauta):
-        if normalizar_texto(pasa) != normalizar_texto(pasa_real):
+        if normalizar_pasa_eliminatoria(pasa) != normalizar_pasa_eliminatoria(pasa_real):
             continue
         pts += ppp
         if normalizar_texto(modo) == normalizar_texto(modo_real):
@@ -667,7 +682,7 @@ def pauta_partido_finalizado(etapa, partido):
         else:
             pasa_real = partido
             modo_real = None
-        return normalizar_texto(pasa_real) != "" and normalizar_texto(modo_real) != ""
+        return normalizar_pasa_eliminatoria(pasa_real) != "" and normalizar_texto(modo_real) != ""
 
     return False
 
@@ -723,7 +738,7 @@ def etiqueta_modo_eliminatoria(modo):
 
 
 def formatear_prediccion_elim(pasa, modo):
-    vp = valor_visible(pasa)
+    vp = valor_visible(texto_pasa_eliminatoria(pasa))
     vm = valor_visible(modo)
     if vp == "-" and vm == "-":
         return "-"
@@ -789,7 +804,8 @@ def interpretar_resultado_grupos(pauta, equipo_a, equipo_b):
             "outcome": "pending",
         }
 
-    norm_resultado = normalizar_comparacion(resultado)
+    ganador_sin_prefijo = texto_ganador_sin_prefijo(resultado)
+    norm_resultado = normalizar_comparacion(ganador_sin_prefijo)
     norm_a = normalizar_comparacion(equipo_a)
     norm_b = normalizar_comparacion(equipo_b)
 
@@ -839,7 +855,7 @@ def interpretar_resultado_eliminatoria(pauta, equipo_a, equipo_b):
         pasa = pauta
         modo = None
 
-    ganador = valor_payload(pasa)
+    ganador = texto_pasa_eliminatoria(pasa)
     modo_txt = etiqueta_modo_eliminatoria(modo)
     if not ganador:
         return {
@@ -1028,9 +1044,9 @@ def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
         total_etapa = 0
         for i, ((pasa, modo), (pasa_real, modo_real)) in enumerate(zip(apuestas, pauta), start=1):
 
-            pauta_pasa_llena = normalizar_texto(pasa_real) != ""
+            pauta_pasa_llena = normalizar_pasa_eliminatoria(pasa_real) != ""
             pauta_modo_llena = normalizar_texto(modo_real) != ""     
-            acierta_pasa = pauta_pasa_llena and (normalizar_texto(pasa) == normalizar_texto(pasa_real))
+            acierta_pasa = pauta_pasa_llena and (normalizar_pasa_eliminatoria(pasa) == normalizar_pasa_eliminatoria(pasa_real))
             puntos_exactitud = cfg["ppp"] if acierta_pasa else 0
             puntos_signo = 0
             bonus = 1 if (acierta_pasa and pauta_modo_llena and normalizar_texto(modo) == normalizar_texto(modo_real)) else 0
@@ -1118,7 +1134,7 @@ def calcular_puntos_repartidos(pautas_por_etapa, campeon_real_oficial, max_por_e
                     pasa_real = item
                     modo_real = None
 
-                if normalizar_texto(pasa_real) == "":
+                if normalizar_pasa_eliminatoria(pasa_real) == "":
                     continue
 
                 puntos_etapa += cfg["ppp"]
@@ -1298,6 +1314,11 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "BELGICA": "🇧🇪",
         "BOLIVIA": "🇧🇴",
         "BOSNIA": "🇧🇦",
+        "BOSNIA AND HERZEGOVINA": "🇧🇦",
+        "BOSNIA HERZAGOBINA": "🇧🇦",
+        "BOSNIA HERZEGOVINA": "🇧🇦",
+        "BOSNIA Y HERZAGOBINA": "🇧🇦",
+        "BOSNIA Y HERZEGOVINA": "🇧🇦",
         "BRASIL": "🇧🇷",
         "CABO VERDE": "🇨🇻",
         "CAMERUN": "🇨🇲",
@@ -1339,6 +1360,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "POLONIA": "🇵🇱",
         "PORTUGAL": "🇵🇹",
         "QATAR": "🇶🇦",
+        "CONGO DEMOCRATICO": "🇨🇩",
+        "CONGO KINSHASA": "🇨🇩",
+        "DR CONGO": "🇨🇩",
+        "R D CONGO": "🇨🇩",
+        "RD CONGO": "🇨🇩",
+        "REP DEMOCRATICA DEL CONGO": "🇨🇩",
+        "REPUBLICA DEMOCRATICA DEL CONGO": "🇨🇩",
         "SENEGAL": "🇸🇳",
         "SERBIA": "🇷🇸",
         "SUDAFRICA": "🇿🇦",
@@ -1360,6 +1388,11 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "BELGICA": "be",
         "BOLIVIA": "bo",
         "BOSNIA": "ba",
+        "BOSNIA AND HERZEGOVINA": "ba",
+        "BOSNIA HERZAGOBINA": "ba",
+        "BOSNIA HERZEGOVINA": "ba",
+        "BOSNIA Y HERZAGOBINA": "ba",
+        "BOSNIA Y HERZEGOVINA": "ba",
         "BRASIL": "br",
         "CABO VERDE": "cv",
         "CAMERUN": "cm",
@@ -1401,6 +1434,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "POLONIA": "pl",
         "PORTUGAL": "pt",
         "QATAR": "qa",
+        "CONGO DEMOCRATICO": "cd",
+        "CONGO KINSHASA": "cd",
+        "DR CONGO": "cd",
+        "R D CONGO": "cd",
+        "RD CONGO": "cd",
+        "REP DEMOCRATICA DEL CONGO": "cd",
+        "REPUBLICA DEMOCRATICA DEL CONGO": "cd",
         "SENEGAL": "sn",
         "SERBIA": "rs",
         "SUDAFRICA": "za",
