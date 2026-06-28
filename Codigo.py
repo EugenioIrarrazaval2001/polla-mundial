@@ -2191,18 +2191,7 @@ tbody tr:hover {{
 
 .tabla-posiciones th.total,
 .tabla-posiciones td.total {{
-    font-weight: 800;
-    font-size: 16px;
-    color: #ffdf57;
-    background: rgba(255, 223, 87, 0.10);
-    box-shadow:
-        inset 1px 0 rgba(255, 223, 87, 0.22),
-        inset -1px 0 rgba(255, 223, 87, 0.22);
-}}
-
-.tabla-posiciones thead th.total {{
-    color: #111827;
-    background: #ffdf57;
+    border: 2px solid #05070d;
 }}
 
 td.nombre {{
@@ -2305,18 +2294,6 @@ tbody tr.podio-bronce {{
     background: linear-gradient(90deg, #cd7f32, #e6a15a, #cd7f32);
     color: #1a1a1a;
     font-weight: 700;
-}}
-
-tbody tr.podio-oro td.total,
-tbody tr.podio-plata td.total,
-tbody tr.podio-bronce td.total {{
-    font-size: 18px;
-    font-weight: 800;
-    color: #111827;
-    background: rgba(255, 255, 255, 0.36);
-    box-shadow:
-        inset 1px 0 rgba(0, 0, 0, 0.16),
-        inset -1px 0 rgba(0, 0, 0, 0.16);
 }}
 
 tbody tr.podio-oro:hover,
@@ -2702,17 +2679,6 @@ tbody tr.podio-bronce:hover {{
         font-size: 11px;
         padding-left: 5px;
         padding-right: 5px;
-    }}
-
-    .tabla-posiciones th.total,
-    .tabla-posiciones td.total {{
-        font-size: 13px;
-    }}
-
-    .tabla-posiciones tbody tr.podio-oro td.total,
-    .tabla-posiciones tbody tr.podio-plata td.total,
-    .tabla-posiciones tbody tr.podio-bronce td.total {{
-        font-size: 14px;
     }}
 
     .stage-score {{
