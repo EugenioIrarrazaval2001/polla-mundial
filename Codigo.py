@@ -327,6 +327,8 @@ def preparar_y_cargar_calendario():
                 datetime_chile_iso = construir_iso_calendario(fecha_chile, hora_chile)
 
             calendario[etapa][numero] = {
+                "equipo_a": texto_celda(valor_columna(row, "equipo_a")),
+                "equipo_b": texto_celda(valor_columna(row, "equipo_b")),
                 "fecha_chile": fecha_chile,
                 "hora_chile": hora_chile,
                 "datetime_chile_iso": datetime_chile_iso,
@@ -910,6 +912,13 @@ def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamie
             equipo_b = enfrentamiento.get("equipo_b", "")
             pauta = pauta_etapa[i] if i < len(pauta_etapa) else None
             datos_calendario = calendario_etapa.get(numero_partido, {})
+            if not equipo_a:
+                equipo_a = datos_calendario.get("equipo_a", "")
+            if not equipo_b:
+                equipo_b = datos_calendario.get("equipo_b", "")
+            nombre_enfrentamiento = enfrentamiento.get("nombre") or f"Partido {numero_partido}"
+            if equipo_a or equipo_b:
+                nombre_enfrentamiento = formatear_enfrentamiento(equipo_a, equipo_b, numero_partido)
 
             if cfg["tipo"] == "GRUPOS":
                 info_resultado = interpretar_resultado_grupos(pauta, equipo_a, equipo_b)
@@ -935,7 +944,7 @@ def construir_resultados_payload(etapas_ordenadas, pautas_por_etapa, enfrentamie
 
             partidos.append({
                 "numero": numero_partido,
-                "nombre_enfrentamiento": enfrentamiento.get("nombre") or f"Partido {numero_partido}",
+                "nombre_enfrentamiento": nombre_enfrentamiento,
                 "equipo_a": equipo_a,
                 "equipo_b": equipo_b,
                 "fecha_chile": datos_calendario.get("fecha_chile", ""),
@@ -1288,12 +1297,15 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "AUSTRALIA": "🇦🇺",
         "BELGICA": "🇧🇪",
         "BOLIVIA": "🇧🇴",
+        "BOSNIA": "🇧🇦",
         "BRASIL": "🇧🇷",
+        "CABO VERDE": "🇨🇻",
         "CAMERUN": "🇨🇲",
         "CANADA": "🇨🇦",
         "CHILE": "🇨🇱",
         "CHINA": "🇨🇳",
         "COLOMBIA": "🇨🇴",
+        "CONGO": "🇨🇬",
         "COREA": "🇰🇷",
         "COREA DEL SUR": "🇰🇷",
         "COSTA DE MARFIL": "🇨🇮",
@@ -1347,12 +1359,15 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         "AUSTRALIA": "au",
         "BELGICA": "be",
         "BOLIVIA": "bo",
+        "BOSNIA": "ba",
         "BRASIL": "br",
+        "CABO VERDE": "cv",
         "CAMERUN": "cm",
         "CANADA": "ca",
         "CHILE": "cl",
         "CHINA": "cn",
         "COLOMBIA": "co",
+        "CONGO": "cg",
         "COREA": "kr",
         "COREA DEL SUR": "kr",
         "COSTA DE MARFIL": "ci",
@@ -1593,7 +1608,15 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             stageSelect.appendChild(option);
         });
         stageSelect.disabled = false;
-        stageSelect.value = stages[0].id;
+        var etapaConHorario = stages.slice().reverse().find(function (stage) {
+            return (matchesByStage[stage.id] || []).some(function (match) {
+                var sortKey = String(match.sort_key || "").trim();
+                var fecha = String(match.fecha_chile || "").trim();
+                var hora = String(match.hora_chile || "").trim();
+                return !!sortKey || (!!fecha && !!hora);
+            });
+        });
+        stageSelect.value = (etapaConHorario || stages[0]).id;
         renderResultados();
     }
 
