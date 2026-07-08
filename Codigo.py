@@ -1685,6 +1685,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var etapas = payload.stages || [];
     var detalles = payload.details || {};
     var etiquetasPartidos = payload.match_labels || {};
+    var bonusCampeon = payload.bonus_champion || {};
     var MENSAJE_RONDA_NO_COMIENZA = "Ronda aún no comienza.";
 
     var participanteSel = document.getElementById("detalle-participante");
@@ -1704,6 +1705,10 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var detalle2ResumenResultado = document.getElementById("detalle2-resumen-resultado");
     var detalle2Head = document.getElementById("detalle2-head-row");
     var detalle2Body = document.getElementById("detalle2-body");
+    var bonusResumenEstado = document.getElementById("bonus-resumen-estado");
+    var bonusResumenOficial = document.getElementById("bonus-resumen-oficial");
+    var bonusResumenRespuestas = document.getElementById("bonus-resumen-respuestas");
+    var bonusBody = document.getElementById("bonus-body");
 
     function appendCell(tr, value, className) {
         var td = document.createElement("td");
@@ -2028,6 +2033,56 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         detalle2Content.hidden = false;
     }
 
+    function renderBonusCampeon() {
+        if (!bonusBody) return;
+
+        var started = !!bonusCampeon.started;
+        var filas = Array.isArray(bonusCampeon.participants) ? bonusCampeon.participants.slice() : [];
+        bonusBody.innerHTML = "";
+
+        if (bonusResumenEstado) {
+            bonusResumenEstado.textContent = started ? "Visible" : "Pendiente";
+        }
+        if (bonusResumenOficial) {
+            bonusResumenOficial.textContent = bonusCampeon.official_champion || "-";
+        }
+        if (bonusResumenRespuestas) {
+            bonusResumenRespuestas.textContent = started ? String(filas.length) : "-";
+        }
+
+        if (!started) {
+            var trPendiente = document.createElement("tr");
+            var tdPendiente = document.createElement("td");
+            tdPendiente.colSpan = 3;
+            tdPendiente.textContent = MENSAJE_RONDA_NO_COMIENZA;
+            trPendiente.appendChild(tdPendiente);
+            bonusBody.appendChild(trPendiente);
+            return;
+        }
+
+        if (!filas.length) {
+            var trVacio = document.createElement("tr");
+            var tdVacio = document.createElement("td");
+            tdVacio.colSpan = 3;
+            tdVacio.textContent = "Sin pronósticos de campeón disponibles.";
+            trVacio.appendChild(tdVacio);
+            bonusBody.appendChild(trVacio);
+            return;
+        }
+
+        filas.sort(function (a, b) {
+            return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
+        });
+
+        filas.forEach(function (fila) {
+            var tr = document.createElement("tr");
+            appendCell(tr, fila.name || "-", "");
+            appendCell(tr, fila.champion || "Sin dato", "");
+            appendCell(tr, String(fila.points || 0), clasePuntos(fila.points || 0));
+            bonusBody.appendChild(tr);
+        });
+    }
+
     llenarSelectores();
     participanteSel.addEventListener("change", renderDetalleParticipante);
     etapaSel.addEventListener("change", renderDetalleParticipante);
@@ -2038,6 +2093,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     detalle2PartidoSel.addEventListener("change", renderDetallePartido);
     renderVacioDetalle();
     renderVacioPartido();
+    renderBonusCampeon();
 })();
 </script>
 """.replace("__DETALLE_JSON__", detalle_json).replace("__RESULTADOS_JSON__", resultados_json)
@@ -2855,6 +2911,38 @@ tbody tr.podio-bronce:hover {{
 </div>
 </section>
 
+<section class="detalle-wrap detalle-wrap-sec" id="bonus-section">
+<h2 class="detalle-title">Detalle Bono Campeón</h2>
+
+<div class="detalle-summary">
+    <div class="detalle-card">
+        <div class="detalle-label">Estado</div>
+        <div class="detalle-value" id="bonus-resumen-estado">-</div>
+    </div>
+    <div class="detalle-card">
+        <div class="detalle-label">Campeón oficial</div>
+        <div class="detalle-value" id="bonus-resumen-oficial">-</div>
+    </div>
+    <div class="detalle-card">
+        <div class="detalle-label">Pronósticos visibles</div>
+        <div class="detalle-value" id="bonus-resumen-respuestas">-</div>
+    </div>
+</div>
+
+<div class="detalle-table-wrap">
+    <table class="detalle-table">
+        <thead>
+            <tr>
+                <th>Participante</th>
+                <th>Campeón pronosticado</th>
+                <th class="num">Bono</th>
+            </tr>
+        </thead>
+        <tbody id="bonus-body"></tbody>
+    </table>
+</div>
+</section>
+
 {detalle_script}
 </div>
 </body>
@@ -3195,6 +3283,23 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
                 "partidos": detalle["partidos"],
             }
 
+    bonus_campeon_started = etapas_comenzadas.get("E01", False)
+    bonus_campeon_participantes = []
+    if bonus_campeon_started:
+        for pid, info in sorted(datos.items(), key=lambda x: x[1]["nombre"].upper()):
+            campeon_pred = info.get("campeon_pred")
+            puntos_bono = (
+                BONUS_PTS
+                if campeon_real_norm and norm(campeon_pred) == campeon_real_norm
+                else 0
+            )
+            bonus_campeon_participantes.append({
+                "id": pid,
+                "name": info["nombre"],
+                "champion": valor_payload(campeon_pred),
+                "points": puntos_bono,
+            })
+
     payload_detalle = {
         "participants": participantes_select,
         "stages": etapas_select,
@@ -3202,6 +3307,11 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         "match_labels": {
             e: enfrentamientos_por_etapa.get(e, [])
             for e in etapas_ordenadas
+        },
+        "bonus_champion": {
+            "started": bonus_campeon_started,
+            "official_champion": valor_payload(campeon_real_oficial) if bonus_campeon_started else "",
+            "participants": bonus_campeon_participantes,
         },
     }
     payload_resultados = construir_resultados_payload(
