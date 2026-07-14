@@ -1139,6 +1139,8 @@ def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
             partidos.append({
                 "partido": i,
                 "pronostico": formatear_prediccion_elim(pasa, modo),
+                "pasa_raw": valor_payload(pasa),
+                "modo_raw": valor_payload(modo),
                 "pauta": formatear_prediccion_elim(pasa_real, modo_real),
                 "puntos_exactitud": puntos_exactitud,
                 "puntos_signo": puntos_signo,
@@ -1158,6 +1160,290 @@ def calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa):
 
 def calcular_puntaje_etapa(ruta_excel, etapa, pautas_por_etapa):
     return calcular_detalle_etapa(ruta_excel, etapa, pautas_por_etapa)["total_etapa"]
+
+
+def categoria_modo_tendencia(modo):
+    norm = normalizar_comparacion(modo)
+    if norm in {
+        "90", "90 MIN", "90 MINUTOS", "TIEMPO REGULAR",
+        "EN LOS 90", "EN 90", "REGULAR",
+    }:
+        return "90"
+    if norm in {
+        "120", "120 MIN", "120 MINUTOS", "EN LOS 120", "EN 120",
+        "ALARGUE", "TIEMPO EXTRA", "EN TIEMPO EXTRA",
+        "SUPLEMENTARIO", "PRORROGA",
+    }:
+        return "120"
+    if norm in {
+        "PENALES", "EN PENALES", "PENAL", "PENALTIES",
+        "PENALTIS", "PK", "PEN",
+    }:
+        return "PENALES"
+    return None
+
+
+def leer_pronosticos_eliminatoria_crudos(ruta_excel, etapa):
+    cfg = ETAPAS[etapa]
+    if cfg["tipo"] != "ELIM":
+        return []
+    wb = load_workbook(ruta_excel, data_only=True)
+    try:
+        apuestas = leer_celdas_eliminatoria(wb.active, cfg["n_partidos"])
+        return [
+            {
+                "pasa_raw": valor_payload(pasa),
+                "modo_raw": valor_payload(modo),
+            }
+            for pasa, modo in apuestas
+        ]
+    finally:
+        wb.close()
+
+
+def construir_partidos_clave_eliminatorias(
+        enfrentamientos_detalle_por_etapa, pautas_por_etapa,
+        calendario_por_etapa=None):
+    partidos_config = [
+        ("E04", 1, "Cuarto 1"),
+        ("E04", 2, "Cuarto 2"),
+        ("E04", 3, "Cuarto 3"),
+        ("E04", 4, "Cuarto 4"),
+        ("E05", 1, "Semi 1"),
+        ("E05", 2, "Semi 2"),
+        ("E06", 1, "Final"),
+    ]
+    calendario_por_etapa = calendario_por_etapa or {}
+    partidos = []
+
+    for etapa, numero_partido, etiqueta_corta in partidos_config:
+        enfrentamientos = enfrentamientos_detalle_por_etapa.get(etapa, []) or []
+        enfrentamiento = next(
+            (
+                item for item in enfrentamientos
+                if int(item.get("numero", 0) or 0) == numero_partido
+            ),
+            {},
+        )
+        equipo_a = valor_payload(enfrentamiento.get("equipo_a"))
+        equipo_b = valor_payload(enfrentamiento.get("equipo_b"))
+        enfrentamiento_conocido = bool(equipo_a and equipo_b)
+        selector_label = (
+            f"{etiqueta_corta} — {equipo_a} vs {equipo_b}"
+            if enfrentamiento_conocido
+            else f"{etiqueta_corta} — Enfrentamiento por definir"
+        )
+        calendario = calendario_por_etapa.get(etapa, {}).get(numero_partido, {})
+        pauta_etapa = pautas_por_etapa.get(etapa) or []
+        pauta_partido = (
+            pauta_etapa[numero_partido - 1]
+            if numero_partido <= len(pauta_etapa)
+            else None
+        )
+        partidos.append({
+            "id": f"{etapa}-{numero_partido}",
+            "stage": etapa,
+            "match_number": numero_partido,
+            "short_label": etiqueta_corta,
+            "selector_label": selector_label,
+            "equipo_a": equipo_a,
+            "equipo_b": equipo_b,
+            "datetime_chile_iso": valor_payload(
+                calendario.get("datetime_chile_iso")
+            ),
+            "finished": (
+                pauta_partido_finalizado(etapa, pauta_partido)
+                if pauta_partido is not None
+                else False
+            ),
+            "matchup_known": enfrentamiento_conocido,
+        })
+
+    return partidos
+
+
+def formatear_pronostico_para_tabla(pasa, modo):
+    ganador = texto_pasa_eliminatoria(pasa).strip()
+    modo_original = valor_payload(modo)
+    ganador_norm = normalizar_comparacion(
+        normalizar_pasa_eliminatoria(ganador)
+    )
+    modo_norm = normalizar_comparacion(modo_original)
+    categoria = categoria_modo_tendencia(modo_original)
+    etiquetas_modo = {"90": "90'", "120": "120'", "PENALES": "Penales"}
+
+    if not ganador_norm and not modo_norm:
+        return {
+            "winner": "",
+            "mode": "",
+            "display": "Sin pronóstico",
+            "status": "missing",
+        }
+    if not ganador_norm:
+        return {
+            "winner": "",
+            "mode": etiquetas_modo.get(categoria, etiqueta_modo_eliminatoria(modo_original)),
+            "display": "Pronóstico incompleto",
+            "status": "incomplete",
+        }
+    if not modo_norm:
+        return {
+            "winner": ganador,
+            "mode": "",
+            "display": f"{ganador} · Modo no indicado",
+            "status": "incomplete",
+        }
+    if not categoria:
+        modo_visible = etiqueta_modo_eliminatoria(modo_original) or modo_original
+        return {
+            "winner": ganador,
+            "mode": modo_visible,
+            "display": f"{ganador} · {modo_visible}",
+            "status": "unrecognized",
+        }
+
+    modo_visible = etiquetas_modo[categoria]
+    return {
+        "winner": ganador,
+        "mode": modo_visible,
+        "display": f"{ganador} · {modo_visible}",
+        "status": "complete",
+    }
+
+
+def construir_pronosticos_tabla_payload(datos, partidos_clave):
+    predictions = {}
+    for pid, info in datos.items():
+        predictions[pid] = {}
+        for partido in partidos_clave:
+            etapa = partido["stage"]
+            indice = partido["match_number"] - 1
+            pronosticos_etapa = info.get("pronosticos_elim", {}).get(etapa, [])
+            raw = pronosticos_etapa[indice] if indice < len(pronosticos_etapa) else {}
+            pronostico = formatear_pronostico_para_tabla(
+                raw.get("pasa_raw", ""), raw.get("modo_raw", "")
+            )
+
+            if pronostico["winner"] and partido["matchup_known"]:
+                ganador_norm = normalizar_comparacion(
+                    normalizar_pasa_eliminatoria(pronostico["winner"])
+                )
+                equipos_validos = {
+                    normalizar_comparacion(partido["equipo_a"]),
+                    normalizar_comparacion(partido["equipo_b"]),
+                }
+                if ganador_norm not in equipos_validos:
+                    pronostico["status"] = "unrecognized"
+
+            predictions[pid][partido["id"]] = pronostico
+
+    return {
+        "matches": partidos_clave,
+        "predictions": predictions,
+    }
+
+
+def construir_tendencias_eliminatorias(datos, partidos_clave):
+    total_participantes = len(datos)
+    payload_partidos = []
+
+    for partido_base in partidos_clave:
+        etapa = partido_base["stage"]
+        numero_partido = partido_base["match_number"]
+        equipo_a = partido_base["equipo_a"]
+        equipo_b = partido_base["equipo_b"]
+
+        conteo_equipos = {"A": 0, "B": 0}
+        conteo_matriz = {
+            "A": {"90": 0, "120": 0, "PENALES": 0},
+            "B": {"90": 0, "120": 0, "PENALES": 0},
+        }
+        sin_pronostico = 0
+        no_reconocidos = 0
+
+        equipo_a_norm = normalizar_comparacion(equipo_a)
+        equipo_b_norm = normalizar_comparacion(equipo_b)
+
+        for info in datos.values():
+            pronosticos_etapa = info.get("pronosticos_elim", {}).get(etapa, [])
+            indice = numero_partido - 1
+            if indice >= len(pronosticos_etapa):
+                sin_pronostico += 1
+                continue
+
+            pronostico = pronosticos_etapa[indice]
+            pasa_raw = pronostico.get("pasa_raw", "")
+            modo_raw = pronostico.get("modo_raw", "")
+            pasa_sin_prefijo = texto_pasa_eliminatoria(pasa_raw)
+            pasa_norm = normalizar_comparacion(
+                normalizar_pasa_eliminatoria(pasa_sin_prefijo)
+            )
+            modo_norm = normalizar_comparacion(modo_raw)
+            if not pasa_norm and not modo_norm:
+                sin_pronostico += 1
+                continue
+
+            lado = None
+            if equipo_a_norm and pasa_norm == equipo_a_norm:
+                lado = "A"
+            elif equipo_b_norm and pasa_norm == equipo_b_norm:
+                lado = "B"
+
+            categoria_modo = categoria_modo_tendencia(modo_raw)
+            if lado:
+                conteo_equipos[lado] += 1
+            if lado and categoria_modo:
+                conteo_matriz[lado][categoria_modo] += 1
+            else:
+                no_reconocidos += 1
+
+        pronosticos_equipo_validos = sum(conteo_equipos.values())
+        pronosticos_combinacion_validos = sum(
+            sum(modos.values()) for modos in conteo_matriz.values()
+        )
+
+        def porcentaje(conteo, denominador):
+            return (conteo / denominador * 100) if denominador else 0
+
+        payload_partido = dict(partido_base)
+        payload_partido.update({
+            "total_participants": total_participantes,
+            "valid_team_predictions": pronosticos_equipo_validos,
+            "valid_combination_predictions": pronosticos_combinacion_validos,
+            "missing_predictions": sin_pronostico,
+            "unrecognized_predictions": no_reconocidos,
+            "teams": {
+                "A": {
+                    "name": equipo_a,
+                    "count": conteo_equipos["A"],
+                    "percentage": porcentaje(
+                        conteo_equipos["A"], pronosticos_equipo_validos
+                    ),
+                },
+                "B": {
+                    "name": equipo_b,
+                    "count": conteo_equipos["B"],
+                    "percentage": porcentaje(
+                        conteo_equipos["B"], pronosticos_equipo_validos
+                    ),
+                },
+            },
+            "matrix": {
+                lado: {
+                    modo: {
+                        "count": conteo,
+                        "percentage": porcentaje(
+                            conteo, pronosticos_combinacion_validos
+                        ),
+                    }
+                    for modo, conteo in modos.items()
+                }
+                for lado, modos in conteo_matriz.items()
+            },
+        })
+        payload_partidos.append(payload_partido)
+
+    return {"matches": payload_partidos}
 
 def html_escape(x):
     if x is None:
@@ -1192,7 +1478,7 @@ def formatear_puntaje_familiar(valor):
     numero = float(valor)
     if numero.is_integer():
         return str(int(numero))
-    return f"{numero:.1f}".rstrip("0").rstrip(".")
+    return f"{numero:.2f}".rstrip("0").rstrip(".").replace(".", ",")
 
 
 def construir_ranking_familiar(participantes, datos_familias, etapas_ordenadas):
@@ -1366,28 +1652,41 @@ def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizada
 
 def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
                                   max_bonus, max_total, podios_por_etapa=None,
-                                  titulo=None, ranking_familiar=False):
+                                  titulo=None, ranking_familiar=False,
+                                  mostrar_columna_pronostico=False):
     podios_por_etapa = podios_por_etapa or {}
-    headers = ["Pos", "Nombre", "Total"] \
-              + [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas] \
-              + [NOMBRE_COLUMNA_BONUS]
-    max_row = ["", "", f"Max={max_total}"] \
-              + [f"Max={max_por_etapa[e]}" for e in etapas_ordenadas] \
-              + [f"Max={max_bonus}"]
+    headers = ["Pos", "Nombre", "Total"]
+    max_row = ["", "", f"Max={max_total}"]
+    if mostrar_columna_pronostico:
+        headers.append("Pronóstico")
+        max_row.append("—")
+    headers += [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas]
+    headers.append(NOMBRE_COLUMNA_BONUS)
+    max_row += [f"Max={max_por_etapa[e]}" for e in etapas_ordenadas]
+    max_row.append(f"Max={max_bonus}")
 
     colgroup_html = (
         "<colgroup>"
         "<col class='col-pos'>"
         "<col class='col-nombre'>"
         "<col class='col-total'>"
-        + "".join("<col class='col-puntaje'>" for _ in headers[3:])
+        + ("<col class='col-pronostico'>" if mostrar_columna_pronostico else "")
+        + "".join("<col class='col-puntaje'>" for _ in etapas_ordenadas)
+        + "<col class='col-puntaje'>"
         + "</colgroup>"
     )
 
     def mostrar(valor):
         return formatear_puntaje_familiar(valor) if ranking_familiar else str(valor)
 
-    def render_header_cell(texto, idx):
+    def render_header_cell(texto, idx, fila_maximos=False):
+        if mostrar_columna_pronostico and idx == 3 and not fila_maximos:
+            return (
+                "<th class='col-pronostico-header'>"
+                "<span>Pronóstico</span>"
+                "<small id='pronostico-header-partido'>Partido seleccionado</small>"
+                "</th>"
+            )
         clase = " class='total'" if idx == 2 else ""
         return f"<th{clase}>{html_escape(texto)}</th>"
 
@@ -1414,12 +1713,20 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
     body_html = []
     for pid, pos, nombre, scores, bono, total in filas:
         clase = clase_podio_tabla(pos)
-        row_open = f"<tr class='{clase}'>" if clase else "<tr>"
+        atributos = f" data-participant-id='{html_escape(pid)}'"
+        row_open = (
+            f"<tr class='{clase}'{atributos}>" if clase else f"<tr{atributos}>"
+        )
         cells = [
             f"<td>{html_escape(pos)}</td>",
             f"<td class='nombre'>{html_escape(nombre)}</td>",
             f"<td class='total'>{html_escape(mostrar(total))}</td>",
         ]
+        if mostrar_columna_pronostico:
+            cells.append(
+                "<td class='pronostico-partido-cell' "
+                f"data-participant-id='{html_escape(pid)}'>Sin pronóstico</td>"
+            )
         for etapa in etapas_ordenadas:
             cells.append(
                 f"<td>{render_stage_score(pid, etapa, scores.get(etapa, 0))}</td>"
@@ -1428,25 +1735,30 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
         body_html.append(row_open + "".join(cells) + "</tr>")
 
     titulo_html = f"<h2 class='ranking-title'>{html_escape(titulo)}</h2>\n" if titulo else ""
-    return f"""{titulo_html}<table class="tabla-posiciones">
+    tipo_tabla = "tabla-individual" if mostrar_columna_pronostico else "tabla-familiar"
+    return f"""{titulo_html}<div class="tabla-posiciones-scroll {tipo_tabla}-scroll">
+<table class="tabla-posiciones {tipo_tabla}">
 {colgroup_html}
 <thead>
 <tr>
 {''.join(render_header_cell(h, i) for i, h in enumerate(headers))}
 </tr>
 <tr>
-{''.join(render_header_cell(v, i) for i, v in enumerate(max_row))}
+{''.join(render_header_cell(v, i, True) for i, v in enumerate(max_row))}
 </tr>
 </thead>
 <tbody>
 {''.join(body_html)}
 </tbody>
-</table>"""
+</table>
+</div>"""
 
 
 def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       max_por_etapa, max_bonus, max_total, out_path,
                       detalle_payload, resultados_payload=None,
+                      tendencias_payload=None,
+                      pronosticos_tabla_payload=None,
                       puntos_repartidos=0, porcentaje_avance=0,
                       podios_por_etapa=None, participantes_familiares=None,
                       podios_familiares=None):
@@ -1456,6 +1768,14 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
     resultados_payload = resultados_payload or {"stages": [], "matches": {}}
     resultados_json = json.dumps(resultados_payload, ensure_ascii=False).replace("</", "<\\/")
+    tendencias_payload = tendencias_payload or {"matches": []}
+    tendencias_json = json.dumps(tendencias_payload, ensure_ascii=False).replace("</", "<\\/")
+    pronosticos_tabla_payload = pronosticos_tabla_payload or {
+        "matches": [], "predictions": {}
+    }
+    pronosticos_tabla_json = json.dumps(
+        pronosticos_tabla_payload, ensure_ascii=False
+    ).replace("</", "<\\/")
     porcentaje_display = formatear_porcentaje_avance(porcentaje_avance)
     progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
     podios_por_etapa = podios_por_etapa or {}
@@ -1469,11 +1789,19 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         max_total=max_total,
         podios_por_etapa=podios_por_etapa,
         titulo="Tabla individual" if mostrar_ranking_familiar else None,
+        mostrar_columna_pronostico=True,
     )
     ranking_toggle_html = ""
     ranking_familiar_css = ""
     ranking_toggle_script = ""
     rankings_html = tabla_individual_html
+    pronosticos_control_html = """
+<div id="pronosticos-tabla-control" class="pronosticos-tabla-control">
+    <label for="pronosticos-tabla-selector">Pronósticos mostrados</label>
+    <select id="pronosticos-tabla-selector" class="pronosticos-tabla-selector"></select>
+    <small>Afecta solamente la tabla individual.</small>
+</div>
+"""
 
     if mostrar_ranking_familiar:
         tabla_familiar_html = render_tabla_posiciones_html(
@@ -1485,6 +1813,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             podios_por_etapa=podios_familiares,
             titulo="Tabla familiar",
             ranking_familiar=True,
+            mostrar_columna_pronostico=False,
         )
         ranking_toggle_html = """
 <div class="ranking-toggle" role="group" aria-label="Modalidad de la tabla de posiciones">
@@ -1567,6 +1896,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var buttons = document.querySelectorAll(".ranking-toggle-button");
     var individual = document.getElementById("ranking-individual");
     var familiar = document.getElementById("ranking-familiar");
+    var pronosticosControl = document.getElementById("pronosticos-tabla-control");
     if (!buttons.length || !individual || !familiar) return;
 
     buttons.forEach(function (button) {
@@ -1574,6 +1904,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             var mostrarFamiliar = button.getAttribute("data-ranking-target") === "familiar";
             individual.hidden = mostrarFamiliar;
             familiar.hidden = !mostrarFamiliar;
+            if (pronosticosControl) pronosticosControl.hidden = mostrarFamiliar;
             buttons.forEach(function (item) {
                 var activo = item === button;
                 item.classList.toggle("is-active", activo);
@@ -1803,6 +2134,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         }
         return null;
     }
+
+    window.MundialUI = {
+        normalizarPais: normalizarPais,
+        crearBandera: crearBandera,
+        codigoPais: codigoPais,
+        flagPais: flagPais
+    };
 
     function crearPais(nombre, ganador, fallback) {
         var limpio = String(nombre || "").trim();
@@ -2400,6 +2738,326 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 </script>
 """.replace("__DETALLE_JSON__", detalle_json).replace("__RESULTADOS_JSON__", resultados_json)
 
+    pronosticos_tabla_script = """
+<script id="pronosticos-tabla-data" type="application/json">__PRONOSTICOS_TABLA_JSON__</script>
+<script>
+(function () {
+    var dataNode = document.getElementById("pronosticos-tabla-data");
+    var selector = document.getElementById("pronosticos-tabla-selector");
+    var headerPartido = document.getElementById("pronostico-header-partido");
+    var cells = document.querySelectorAll(".pronostico-partido-cell[data-participant-id]");
+    if (!dataNode || !selector || !headerPartido || !cells.length) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear pronosticos-tabla-data", e);
+        payload = {};
+    }
+    var matches = Array.isArray(payload.matches) ? payload.matches : [];
+    var predictions = payload.predictions || {};
+    var estadosValidos = ["complete", "missing", "incomplete", "unrecognized"];
+
+    function tiempoPartido(match) {
+        var timestamp = Date.parse(String(match.datetime_chile_iso || ""));
+        return Number.isFinite(timestamp) ? timestamp : null;
+    }
+
+    function seleccionarPartidoInicial(partidos, ahora) {
+        var programados = partidos.map(function (match) {
+            return { match: match, timestamp: tiempoPartido(match) };
+        }).filter(function (item) {
+            return item.timestamp !== null;
+        }).sort(function (a, b) {
+            return a.timestamp - b.timestamp;
+        });
+
+        var comenzadosPendientes = programados.filter(function (item) {
+            return item.timestamp <= ahora && !item.match.finished;
+        });
+        if (comenzadosPendientes.length) {
+            return comenzadosPendientes[comenzadosPendientes.length - 1].match;
+        }
+
+        var proximo = programados.find(function (item) {
+            return item.timestamp > ahora;
+        });
+        if (proximo) return proximo.match;
+
+        var noFinalizado = partidos.find(function (match) { return !match.finished; });
+        if (noFinalizado) return noFinalizado;
+
+        return partidos.find(function (match) { return match.id === "E06-1"; }) ||
+               partidos[partidos.length - 1] || null;
+    }
+
+    function limpiar(node) {
+        while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function pronosticoFaltante() {
+        return {
+            winner: "",
+            mode: "",
+            display: "Sin pronóstico",
+            status: "missing"
+        };
+    }
+
+    function renderCell(cell, pronostico) {
+        var dato = pronostico || pronosticoFaltante();
+        var status = estadosValidos.indexOf(dato.status) >= 0 ? dato.status : "unrecognized";
+        limpiar(cell);
+        estadosValidos.forEach(function (estado) {
+            cell.classList.remove("pronostico-cell-" + estado);
+        });
+        cell.classList.add("pronostico-cell-" + status);
+
+        var chip = document.createElement("span");
+        chip.className = "pronostico-chip pronostico-chip-" + status;
+        if (dato.winner && window.MundialUI &&
+            typeof window.MundialUI.crearBandera === "function") {
+            var bandera = window.MundialUI.crearBandera(dato.winner);
+            if (bandera) chip.appendChild(bandera);
+        }
+        var texto = document.createElement("span");
+        texto.textContent = dato.display || "Sin pronóstico";
+        chip.appendChild(texto);
+        cell.appendChild(chip);
+    }
+
+    function renderMatch(match) {
+        if (!match) {
+            headerPartido.textContent = "Sin partido seleccionado";
+            cells.forEach(function (cell) { renderCell(cell, null); });
+            return;
+        }
+        headerPartido.textContent = match.selector_label || match.short_label || match.id;
+        cells.forEach(function (cell) {
+            var participantId = cell.getAttribute("data-participant-id") || "";
+            var participantPredictions = predictions[participantId] || {};
+            renderCell(cell, participantPredictions[match.id]);
+        });
+    }
+
+    matches.forEach(function (match) {
+        var option = document.createElement("option");
+        option.value = match.id;
+        option.textContent = match.selector_label;
+        selector.appendChild(option);
+    });
+
+    if (!matches.length) {
+        selector.disabled = true;
+        renderMatch(null);
+        return;
+    }
+
+    var inicial = seleccionarPartidoInicial(matches, Date.now()) || matches[0];
+    selector.value = inicial.id;
+    renderMatch(inicial);
+    selector.addEventListener("change", function () {
+        var selected = matches.find(function (match) { return match.id === selector.value; });
+        renderMatch(selected || matches[0]);
+    });
+})();
+</script>
+""".replace("__PRONOSTICOS_TABLA_JSON__", pronosticos_tabla_json)
+
+    tendencias_script = """
+<script id="tendencias-data" type="application/json">__TENDENCIAS_JSON__</script>
+<script>
+(function () {
+    var dataNode = document.getElementById("tendencias-data");
+    var selector = document.getElementById("tendencias-partido");
+    var title = document.getElementById("tendencias-match-title");
+    var emptyState = document.getElementById("tendencias-empty");
+    var content = document.getElementById("tendencias-content");
+    var teamCards = document.getElementById("tendencias-team-cards");
+    var teamBar = document.getElementById("tendencias-team-bar");
+    var matrix = document.getElementById("tendencias-matrix");
+    if (!dataNode || !selector || !title || !emptyState || !content ||
+        !teamCards || !teamBar || !matrix) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear tendencias-data", e);
+        return;
+    }
+    var matches = Array.isArray(payload.matches) ? payload.matches : [];
+    var modos = [
+        { id: "90", label: "90'" },
+        { id: "120", label: "120'" },
+        { id: "PENALES", label: "Penales" }
+    ];
+
+    function limpiar(node) {
+        while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function porcentajeSeguro(valor) {
+        var numero = Number(valor);
+        if (!Number.isFinite(numero) || numero < 0) return 0;
+        return Math.min(100, numero);
+    }
+
+    function formatearPorcentaje(valor) {
+        var redondeado = Math.round(porcentajeSeguro(valor) * 10) / 10;
+        var texto = Number.isInteger(redondeado) ? String(redondeado) : redondeado.toFixed(1);
+        return texto.replace(".", ",") + "%";
+    }
+
+    function agregarBandera(contenedor, nombre) {
+        var ui = window.MundialUI;
+        if (!ui || typeof ui.crearBandera !== "function") return;
+        var bandera = ui.crearBandera(nombre);
+        if (bandera) contenedor.appendChild(bandera);
+    }
+
+    function crearTarjetaEquipo(equipo, lado) {
+        var card = document.createElement("div");
+        card.className = "tendencias-team-card tendencias-team-" + lado.toLowerCase();
+
+        var identity = document.createElement("div");
+        identity.className = "tendencias-team-identity";
+        agregarBandera(identity, equipo.name);
+        var name = document.createElement("strong");
+        name.textContent = equipo.name || "Por definir";
+        identity.appendChild(name);
+
+        var metric = document.createElement("div");
+        metric.className = "tendencias-team-metric";
+        metric.textContent = formatearPorcentaje(equipo.percentage) + " (" + String(equipo.count || 0) + ")";
+        card.appendChild(identity);
+        card.appendChild(metric);
+        return card;
+    }
+
+    function crearSegmentoBarra(equipo, lado) {
+        var segment = document.createElement("div");
+        var porcentaje = porcentajeSeguro(equipo.percentage);
+        segment.className = "tendencias-bar-segment tendencias-bar-" + lado.toLowerCase();
+        segment.style.width = porcentaje + "%";
+        segment.setAttribute(
+            "aria-label",
+            (equipo.name || "Equipo " + lado) + ": " + formatearPorcentaje(porcentaje) +
+            " (" + String(equipo.count || 0) + ")"
+        );
+        if (porcentaje >= 18) {
+            var label = document.createElement("span");
+            label.textContent = formatearPorcentaje(porcentaje);
+            segment.appendChild(label);
+        }
+        return segment;
+    }
+
+    function crearCeldaMatriz(equipo, modo, dato, lado) {
+        var cell = document.createElement("div");
+        cell.className = "tendencias-matrix-cell tendencias-matrix-" + lado.toLowerCase();
+        var fill = document.createElement("div");
+        fill.className = "tendencias-matrix-fill";
+        fill.style.width = porcentajeSeguro(dato.percentage) + "%";
+        var modeLabel = document.createElement("span");
+        modeLabel.className = "tendencias-cell-mode";
+        modeLabel.textContent = modo.label;
+        var value = document.createElement("strong");
+        value.textContent = formatearPorcentaje(dato.percentage) + " (" + String(dato.count || 0) + ")";
+        cell.setAttribute(
+            "aria-label",
+            equipo.name + " en " + modo.label + ": " + value.textContent
+        );
+        cell.appendChild(fill);
+        cell.appendChild(modeLabel);
+        cell.appendChild(value);
+        return cell;
+    }
+
+    function renderMatrix(match) {
+        limpiar(matrix);
+        var corner = document.createElement("div");
+        corner.className = "tendencias-matrix-corner";
+        matrix.appendChild(corner);
+        modos.forEach(function (modo) {
+            var header = document.createElement("div");
+            header.className = "tendencias-matrix-header";
+            header.textContent = modo.label;
+            matrix.appendChild(header);
+        });
+
+        ["A", "B"].forEach(function (lado) {
+            var equipo = match.teams[lado];
+            var rowLabel = document.createElement("div");
+            rowLabel.className = "tendencias-matrix-row-label tendencias-matrix-" + lado.toLowerCase();
+            agregarBandera(rowLabel, equipo.name);
+            var text = document.createElement("span");
+            text.textContent = equipo.name;
+            rowLabel.appendChild(text);
+            matrix.appendChild(rowLabel);
+            modos.forEach(function (modo) {
+                var dato = match.matrix[lado][modo.id];
+                matrix.appendChild(crearCeldaMatriz(equipo, modo, dato, lado));
+            });
+        });
+    }
+
+    function renderMatch(match) {
+        if (!match) return;
+        title.textContent = match.selector_label || match.short_label || "Partido";
+        emptyState.hidden = true;
+        content.hidden = true;
+
+        if (!match.matchup_known) {
+            emptyState.textContent = "Enfrentamiento aún no definido.";
+            emptyState.hidden = false;
+            return;
+        }
+        if (!(match.valid_team_predictions > 0) && !(match.valid_combination_predictions > 0)) {
+            emptyState.textContent = "Todavía no hay pronósticos cargados para este partido.";
+            emptyState.hidden = false;
+            return;
+        }
+
+        limpiar(teamCards);
+        limpiar(teamBar);
+        teamCards.appendChild(crearTarjetaEquipo(match.teams.A, "A"));
+        teamCards.appendChild(crearTarjetaEquipo(match.teams.B, "B"));
+        teamBar.appendChild(crearSegmentoBarra(match.teams.A, "A"));
+        teamBar.appendChild(crearSegmentoBarra(match.teams.B, "B"));
+        renderMatrix(match);
+        content.hidden = false;
+    }
+
+    matches.forEach(function (match) {
+        var option = document.createElement("option");
+        option.value = match.id;
+        option.textContent = match.selector_label;
+        selector.appendChild(option);
+    });
+
+    if (!matches.length) {
+        title.textContent = "Sin partidos disponibles";
+        emptyState.textContent = "Todavía no hay pronósticos cargados para este partido.";
+        emptyState.hidden = false;
+        selector.disabled = true;
+        return;
+    }
+
+    var inicial = matches.find(function (match) {
+        return Number(match.valid_team_predictions || 0) > 0;
+    }) || matches[0];
+    selector.value = inicial.id;
+    renderMatch(inicial);
+    selector.addEventListener("change", function () {
+        var selected = matches.find(function (match) { return match.id === selector.value; });
+        renderMatch(selected || matches[0]);
+    });
+})();
+</script>
+""".replace("__TENDENCIAS_JSON__", tendencias_json)
+
     html = f"""
 <!doctype html>
 <html lang="es">
@@ -2511,6 +3169,76 @@ body {{
     background: linear-gradient(90deg, #50d991, #ffdf57);
 }}
 
+.tabla-ranking-controls {{
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    margin: 0 0 20px;
+}}
+
+.tabla-ranking-controls .ranking-toggle {{
+    flex: 0 1 360px;
+    margin: 0;
+}}
+
+.pronosticos-tabla-control {{
+    flex: 0 1 520px;
+    margin-left: auto;
+}}
+
+.pronosticos-tabla-control label {{
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}}
+
+.pronosticos-tabla-control small {{
+    display: block;
+    margin-top: 5px;
+    color: rgba(236, 242, 255, 0.58);
+    font-size: 11px;
+}}
+
+.pronosticos-tabla-selector {{
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 38px 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    background: #111a35;
+    color: var(--text);
+    font: inherit;
+}}
+
+.tabla-posiciones-scroll {{
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 14px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-color: rgba(140, 200, 255, 0.45) rgba(255, 255, 255, 0.05);
+    scrollbar-width: thin;
+}}
+
+.tabla-posiciones-scroll::-webkit-scrollbar {{
+    height: 8px;
+}}
+
+.tabla-posiciones-scroll::-webkit-scrollbar-track {{
+    background: rgba(255, 255, 255, 0.05);
+}}
+
+.tabla-posiciones-scroll::-webkit-scrollbar-thumb {{
+    border-radius: 999px;
+    background: rgba(140, 200, 255, 0.42);
+}}
+
 table {{
     width: 100%;
     border-collapse: collapse;
@@ -2611,6 +3339,124 @@ tbody tr.podio-bronce .stage-score {{
     width: auto;
 }}
 
+.tabla-posiciones.tabla-individual {{
+    min-width: 1050px;
+}}
+
+.tabla-posiciones.tabla-familiar {{
+    min-width: 760px;
+}}
+
+.tabla-posiciones.tabla-individual col.col-pos {{
+    width: 4.5%;
+}}
+
+.tabla-posiciones.tabla-individual col.col-nombre {{
+    width: 17%;
+}}
+
+.tabla-posiciones.tabla-individual col.col-total {{
+    width: 7.5%;
+}}
+
+.tabla-posiciones.tabla-individual col.col-pronostico {{
+    width: 19%;
+}}
+
+.col-pronostico-header span,
+.col-pronostico-header small {{
+    display: block;
+}}
+
+.col-pronostico-header small {{
+    margin-top: 4px;
+    color: rgba(236, 242, 255, 0.68);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: normal;
+}}
+
+.pronostico-partido-cell {{
+    min-width: 165px;
+    white-space: normal !important;
+}}
+
+.pronostico-chip {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 6px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.25;
+    white-space: normal;
+}}
+
+.pronostico-chip .resultados-flag-img,
+.pronostico-chip .resultados-flag {{
+    flex: 0 0 auto;
+}}
+
+.pronostico-chip-complete {{
+    color: #eaf3ff;
+    background: rgba(49, 130, 246, 0.22);
+    border-color: rgba(111, 175, 255, 0.35);
+}}
+
+.pronostico-chip-missing {{
+    color: rgba(236, 242, 255, 0.66);
+    background: rgba(255, 255, 255, 0.07);
+    opacity: 0.82;
+}}
+
+.pronostico-chip-incomplete {{
+    color: #fff2b8;
+    background: rgba(225, 180, 48, 0.12);
+    border-color: rgba(255, 214, 92, 0.55);
+}}
+
+.pronostico-chip-unrecognized {{
+    color: #ffd7dc;
+    background: rgba(205, 75, 96, 0.12);
+    border-color: rgba(244, 116, 137, 0.56);
+}}
+
+.tabla-posiciones tbody tr.podio-oro .pronostico-chip,
+.tabla-posiciones tbody tr.podio-plata .pronostico-chip,
+.tabla-posiciones tbody tr.podio-bronce .pronostico-chip {{
+    color: #ffffff;
+    background: #10234d;
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30);
+}}
+
+.tabla-posiciones tbody tr.podio-oro .pronostico-chip-missing,
+.tabla-posiciones tbody tr.podio-plata .pronostico-chip-missing,
+.tabla-posiciones tbody tr.podio-bronce .pronostico-chip-missing {{
+    color: #edf2ff;
+    opacity: 0.88;
+}}
+
+.tabla-posiciones tbody tr.podio-oro .pronostico-chip-incomplete,
+.tabla-posiciones tbody tr.podio-plata .pronostico-chip-incomplete,
+.tabla-posiciones tbody tr.podio-bronce .pronostico-chip-incomplete {{
+    color: #ffffff;
+    border-color: rgba(255, 215, 92, 0.88);
+}}
+
+.tabla-posiciones tbody tr.podio-oro .pronostico-chip-unrecognized,
+.tabla-posiciones tbody tr.podio-plata .pronostico-chip-unrecognized,
+.tabla-posiciones tbody tr.podio-bronce .pronostico-chip-unrecognized {{
+    color: #ffffff;
+    border-color: rgba(255, 126, 145, 0.88);
+}}
+
 .tabla-posiciones th,
 .tabla-posiciones td {{
     overflow-wrap: normal;
@@ -2658,6 +3504,260 @@ tbody tr.podio-oro:hover,
 tbody tr.podio-plata:hover,
 tbody tr.podio-bronce:hover {{
     filter: brightness(1.05);
+}}
+
+.tendencias-wrap {{
+    margin-top: 34px;
+    padding: 22px;
+    border-radius: 16px;
+    background: rgba(12, 22, 49, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+}}
+
+.tendencias-sub {{
+    margin: -8px 0 18px;
+    color: var(--muted);
+}}
+
+.tendencias-selector-field {{
+    width: min(100%, 640px);
+    margin: 0 auto 18px;
+}}
+
+.tendencias-selector-field label {{
+    display: block;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+}}
+
+.tendencias-select {{
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 38px 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    background: #111a35;
+    color: var(--text);
+    font: inherit;
+}}
+
+.tendencias-panel {{
+    padding: 20px;
+    border-radius: 14px;
+    background: rgba(5, 10, 24, 0.48);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}}
+
+.tendencias-match-title {{
+    margin: 0 0 18px;
+    text-align: center;
+    font-size: clamp(18px, 3vw, 24px);
+}}
+
+.tendencias-empty {{
+    padding: 28px 18px;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    color: var(--muted);
+    text-align: center;
+}}
+
+.tendencias-chart-title {{
+    margin: 0 0 12px;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 800;
+}}
+
+.tendencias-team-cards {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}}
+
+.tendencias-team-card {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 13px 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+}}
+
+.tendencias-team-a {{
+    background: rgba(49, 130, 246, 0.16);
+}}
+
+.tendencias-team-b {{
+    background: rgba(239, 101, 128, 0.16);
+}}
+
+.tendencias-team-identity {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}}
+
+.tendencias-team-identity strong {{
+    overflow: hidden;
+    text-overflow: ellipsis;
+}}
+
+.tendencias-team-metric {{
+    flex: 0 0 auto;
+    font-weight: 900;
+}}
+
+.tendencias-team-bar {{
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    overflow: hidden;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+}}
+
+.tendencias-bar-segment {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: width 180ms ease;
+}}
+
+.tendencias-bar-segment span {{
+    padding: 0 8px;
+    color: #ffffff;
+    font-weight: 900;
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}}
+
+.tendencias-bar-a {{
+    background: linear-gradient(90deg, #2563eb, #4f9cff);
+}}
+
+.tendencias-bar-b {{
+    background: linear-gradient(90deg, #e64f73, #f47f98);
+}}
+
+.tendencias-matrix-title {{
+    margin-top: 26px;
+}}
+
+.tendencias-matrix-scroll {{
+    overflow-x: auto;
+    padding-bottom: 3px;
+}}
+
+.tendencias-matrix {{
+    display: grid;
+    grid-template-columns: minmax(120px, 1.25fr) repeat(3, minmax(110px, 1fr));
+    gap: 8px;
+    min-width: 560px;
+}}
+
+.tendencias-matrix-corner,
+.tendencias-matrix-header {{
+    padding: 6px 8px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+}}
+
+.tendencias-matrix-row-label {{
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 800;
+}}
+
+.tendencias-matrix-row-label span {{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}}
+
+.tendencias-matrix-row-label.tendencias-matrix-a {{
+    background: rgba(49, 130, 246, 0.16);
+}}
+
+.tendencias-matrix-row-label.tendencias-matrix-b {{
+    background: rgba(239, 101, 128, 0.16);
+}}
+
+.tendencias-matrix-cell {{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 62px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}}
+
+.tendencias-matrix-fill {{
+    position: absolute;
+    inset: 0 auto 0 0;
+    opacity: 0.27;
+}}
+
+.tendencias-matrix-a .tendencias-matrix-fill {{
+    background: #4f9cff;
+}}
+
+.tendencias-matrix-b .tendencias-matrix-fill {{
+    background: #f47f98;
+}}
+
+.tendencias-cell-mode,
+.tendencias-matrix-cell strong {{
+    position: relative;
+    z-index: 1;
+}}
+
+.tendencias-cell-mode {{
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}}
+
+.tendencias-matrix-cell strong {{
+    margin-top: 3px;
+    font-size: 14px;
+}}
+
+@media (max-width: 600px) {{
+    .tendencias-wrap {{
+        padding: 16px;
+    }}
+    .tendencias-panel {{
+        padding: 14px;
+    }}
+    .tendencias-team-cards {{
+        grid-template-columns: 1fr;
+    }}
+    .tendencias-team-card {{
+        padding: 12px;
+    }}
 }}
 
 .resultados-wrap {{
@@ -3002,6 +4102,19 @@ tbody tr.podio-bronce:hover {{
         justify-content: stretch;
     }}
 
+    .tabla-ranking-controls {{
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }}
+
+    .tabla-ranking-controls .ranking-toggle,
+    .pronosticos-tabla-control {{
+        flex-basis: auto;
+        width: 100%;
+        margin-left: 0;
+    }}
+
     .avance-card {{
         width: 100%;
         box-sizing: border-box;
@@ -3072,8 +4185,38 @@ tbody tr.podio-bronce:hover {{
     </div>
 </div>
 
+<div class="tabla-ranking-controls">
 {ranking_toggle_html}
+{pronosticos_control_html}
+</div>
 {rankings_html}
+
+<section class="tendencias-wrap" id="tendencias-section">
+<h2 class="detalle-title">Tendencia de pronósticos</h2>
+<p class="tendencias-sub">Distribución de los pronósticos de los participantes desde cuartos de final</p>
+
+<div class="tendencias-selector-field">
+    <label for="tendencias-partido">Partido</label>
+    <select id="tendencias-partido" class="tendencias-select"></select>
+</div>
+
+<div class="tendencias-panel">
+    <h3 id="tendencias-match-title" class="tendencias-match-title">Partido</h3>
+    <div id="tendencias-empty" class="tendencias-empty" hidden></div>
+    <div id="tendencias-content" hidden>
+        <h4 class="tendencias-chart-title">Qué equipo avanza</h4>
+        <div id="tendencias-team-cards" class="tendencias-team-cards"></div>
+        <div id="tendencias-team-bar" class="tendencias-team-bar"
+             role="img" aria-label="Distribución de pronósticos por equipo"></div>
+
+        <h4 class="tendencias-chart-title tendencias-matrix-title">Cómo avanza cada equipo</h4>
+        <div class="tendencias-matrix-scroll">
+            <div id="tendencias-matrix" class="tendencias-matrix"
+                 role="grid" aria-label="Distribución por equipo y modo"></div>
+        </div>
+    </div>
+</div>
+</section>
 
 <section class="resultados-wrap" id="resultados-section">
 <h2 class="detalle-title">Resultados actualizados del Mundial</h2>
@@ -3235,6 +4378,8 @@ tbody tr.podio-bronce:hover {{
 
 {ranking_toggle_script}
 {detalle_script}
+{pronosticos_tabla_script}
+{tendencias_script}
 </div>
 </body>
 </html>
@@ -3396,6 +4541,7 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
             "nombre": nombre,
             "scores": {e: 0 for e in ETAPAS.keys()},
             "detalle_etapas": {},
+            "pronosticos_elim": {},
             "campeon_pred": None,
             "errores": []
         })
@@ -3409,6 +4555,16 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
             )
             continue
         procesados.add(clave_archivo)
+
+        if etapa in {"E04", "E05", "E06"}:
+            try:
+                datos[pid]["pronosticos_elim"][etapa] = (
+                    leer_pronosticos_eliminatoria_crudos(ruta, etapa)
+                )
+            except Exception as e:
+                datos[pid]["errores"].append(
+                    f"{fn}: error leyendo pronóstico eliminatorio: {e}"
+                )
 
         try:
             detalle_etapa = calcular_detalle_etapa(ruta, etapa, pautas_por_etapa)
@@ -3427,6 +4583,20 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
             except Exception as e:
                 datos[pid]["campeon_pred"] = None
                 datos[pid]["errores"].append(f"{fn}: error leyendo campeón en B4: {e}")
+
+    partidos_clave = construir_partidos_clave_eliminatorias(
+        enfrentamientos_detalle_por_etapa=enfrentamientos_detalle_por_etapa,
+        pautas_por_etapa=pautas_por_etapa,
+        calendario_por_etapa=calendario_por_etapa,
+    )
+    tendencias_payload = construir_tendencias_eliminatorias(
+        datos=datos,
+        partidos_clave=partidos_clave,
+    )
+    pronosticos_tabla_payload = construir_pronosticos_tabla_payload(
+        datos=datos,
+        partidos_clave=partidos_clave,
+    )
 
     # 3) Orden de etapas (ya existe para toda la impresión)
     etapas_ordenadas = sorted(ETAPAS.keys(), key=clave_orden_etapa)
@@ -3708,6 +4878,8 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
         out_path=out_html,
         detalle_payload=payload_detalle,
         resultados_payload=payload_resultados,
+        tendencias_payload=tendencias_payload,
+        pronosticos_tabla_payload=pronosticos_tabla_payload,
         puntos_repartidos=puntos_repartidos,
         porcentaje_avance=porcentaje_avance,
         podios_por_etapa=podios_por_etapa,
