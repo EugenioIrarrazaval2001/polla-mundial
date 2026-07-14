@@ -1476,9 +1476,7 @@ def calcular_posiciones_con_empate(participantes):
 
 def formatear_puntaje_familiar(valor):
     numero = float(valor)
-    if numero.is_integer():
-        return str(int(numero))
-    return f"{numero:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+    return f"{numero:.1f}"
 
 
 def construir_ranking_familiar(participantes, datos_familias, etapas_ordenadas):
