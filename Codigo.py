@@ -17,6 +17,7 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "site")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CALENDARIO_PATH = os.path.join(BASE_DIR, "Calendario_Mundial.xlsx")
+NOMBRES_PARTICIPANTES_PATH = os.path.join(BASE_DIR, "nombres_participantes.xlsx")
 
 CELDA_INICIAL_RESULTADO = "B4"   # donde parte el partido 1
 COL_MODO = "D"                   # en eliminatorias, el "cómo pasa" está en C4, C8, C12...
@@ -710,6 +711,81 @@ def normalizar_comparacion(x):
     return " ".join(txt.split())
 
 
+def cargar_mapa_familias(ruta_excel=NOMBRES_PARTICIPANTES_PATH):
+    """Carga participantes y familias preservando los nombres visibles del Excel."""
+    if not os.path.exists(ruta_excel):
+        raise FileNotFoundError(f"no existe el archivo: {ruta_excel}")
+
+    wb = load_workbook(ruta_excel, data_only=True, read_only=True)
+    try:
+        ws = wb.active
+        mapa_participantes = {}
+        familias = {}
+        avisos = []
+        encabezados_nombre = {
+            "NOMBRE", "NOMBRES", "PARTICIPANTE", "PARTICIPANTES",
+            "NOMBRE PARTICIPANTE", "NOMBRE DEL PARTICIPANTE",
+        }
+        encabezados_familia = {
+            "FAMILIA", "FAMILIAS", "GRUPO", "NOMBRE FAMILIA",
+            "NOMBRE DE FAMILIA", "NOMBRE DE LA FAMILIA",
+        }
+
+        for numero_fila, (nombre_raw, familia_raw) in enumerate(
+            ws.iter_rows(min_row=1, min_col=1, max_col=2, values_only=True),
+            start=1,
+        ):
+            nombre = str(nombre_raw).strip() if nombre_raw is not None else ""
+            familia = str(familia_raw).strip() if familia_raw is not None else ""
+            if not nombre and not familia:
+                continue
+
+            nombre_norm = normalizar_comparacion(nombre)
+            familia_norm = normalizar_comparacion(familia)
+            if nombre_norm in encabezados_nombre and familia_norm in encabezados_familia:
+                continue
+
+            if not nombre or not familia:
+                avisos.append(
+                    f"fila {numero_fila} ignorada: debe tener nombre y familia en columnas A y B."
+                )
+                continue
+            if not nombre_norm or not familia_norm:
+                avisos.append(
+                    f"fila {numero_fila} ignorada: nombre o familia sin caracteres comparables."
+                )
+                continue
+
+            asignacion_anterior = mapa_participantes.get(nombre_norm)
+            if asignacion_anterior:
+                if asignacion_anterior["familia_norm"] != familia_norm:
+                    raise ValueError(
+                        "asignación familiar contradictoria para "
+                        f"'{nombre}': '{asignacion_anterior['familia']}' y '{familia}' "
+                        f"(fila {numero_fila})."
+                    )
+                continue
+
+            familia_info = familias.setdefault(familia_norm, {
+                "nombre": familia,
+                "integrantes_excel": [],
+            })
+            familia_info["integrantes_excel"].append(nombre)
+            mapa_participantes[nombre_norm] = {
+                "nombre_excel": nombre,
+                "familia": familia_info["nombre"],
+                "familia_norm": familia_norm,
+            }
+
+        return {
+            "participantes": mapa_participantes,
+            "familias": familias,
+            "avisos": avisos,
+        }
+    finally:
+        wb.close()
+
+
 def es_empate_pauta(x):
     return normalizar_comparacion(x) in {
         "EMPATE",
@@ -1112,6 +1188,90 @@ def calcular_posiciones_con_empate(participantes):
     return posiciones
 
 
+def formatear_puntaje_familiar(valor):
+    numero = float(valor)
+    if numero.is_integer():
+        return str(int(numero))
+    return f"{numero:.1f}".rstrip("0").rstrip(".")
+
+
+def construir_ranking_familiar(participantes, datos_familias, etapas_ordenadas):
+    mapa_excel = datos_familias["participantes"]
+    familias_excel = datos_familias["familias"]
+    integrantes_por_familia = {clave: [] for clave in familias_excel}
+    nombres_excel_usados = set()
+    participantes_sin_familia = []
+
+    for participante in participantes:
+        pid, nombre, scores, bono, total, errores = participante
+        nombre_norm = normalizar_comparacion(nombre)
+        asignacion = mapa_excel.get(nombre_norm)
+        if not asignacion:
+            participantes_sin_familia.append(nombre)
+            continue
+        nombres_excel_usados.add(nombre_norm)
+        integrantes_por_familia[asignacion["familia_norm"]].append(participante)
+
+    nombres_excel_sin_coincidencia = [
+        info["nombre_excel"]
+        for nombre_norm, info in mapa_excel.items()
+        if nombre_norm not in nombres_excel_usados
+    ]
+    familias_sin_integrantes = []
+    ranking = []
+    integrantes_usados = {}
+
+    for familia_norm, familia_info in familias_excel.items():
+        integrantes = integrantes_por_familia[familia_norm]
+        if not integrantes:
+            familias_sin_integrantes.append(familia_info["nombre"])
+            continue
+
+        cantidad = len(integrantes)
+        scores_promedio = {
+            etapa: sum(p[2].get(etapa, 0) for p in integrantes) / cantidad
+            for etapa in etapas_ordenadas
+        }
+        bono_promedio = sum(p[3] for p in integrantes) / cantidad
+        total_promedio = sum(p[4] for p in integrantes) / cantidad
+        total_por_componentes = sum(scores_promedio.values()) + bono_promedio
+        if abs(total_promedio - total_por_componentes) > 1e-9:
+            raise ValueError(
+                f"el total promedio de la familia '{familia_info['nombre']}' "
+                "no coincide con la suma de sus promedios por etapa y bono."
+            )
+
+        familia_id = f"familia:{familia_norm}"
+        ranking.append((
+            familia_id,
+            familia_info["nombre"],
+            scores_promedio,
+            bono_promedio,
+            total_promedio,
+            [],
+        ))
+        integrantes_usados[familia_id] = sorted(
+            (p[1] for p in integrantes),
+            key=normalizar_comparacion,
+        )
+
+    ranking.sort(key=lambda x: (-x[4], normalizar_comparacion(x[1])))
+    return {
+        "ranking": ranking,
+        "integrantes": integrantes_usados,
+        "participantes_sin_familia": sorted(
+            participantes_sin_familia, key=normalizar_comparacion
+        ),
+        "nombres_excel_sin_coincidencia": sorted(
+            nombres_excel_sin_coincidencia, key=normalizar_comparacion
+        ),
+        "familias_sin_integrantes": sorted(
+            familias_sin_integrantes, key=normalizar_comparacion
+        ),
+        "cantidad_familias_excel": len(familias_excel),
+    }
+
+
 def calcular_puntos_repartidos(pautas_por_etapa, campeon_real_oficial, max_por_etapa, max_bonus):
     puntos_repartidos = 0
 
@@ -1156,7 +1316,8 @@ def formatear_porcentaje_avance(porcentaje):
     return f"{porcentaje_redondeado:.1f}%".replace(".", ",")
 
 
-def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizadas):
+def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizadas,
+                              ranking_familiar=False):
     medallas = {
         1: {"medal": "🥇", "class": "stage-gold"},
         2: {"medal": "🥈", "class": "stage-silver"},
@@ -1193,45 +1354,26 @@ def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizada
                 "rank": rank_actual,
                 "medal": info_medalla["medal"],
                 "class": info_medalla["class"],
-                "title": f"{rank_actual}° lugar en {ETIQUETAS_ETAPAS.get(etapa, etapa)}",
+                "title": (
+                    f"{rank_actual}° lugar familiar en {ETIQUETAS_ETAPAS.get(etapa, etapa)}"
+                    if ranking_familiar
+                    else f"{rank_actual}° lugar en {ETIQUETAS_ETAPAS.get(etapa, etapa)}"
+                ),
             }
 
     return podios_por_etapa
 
 
-def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
-                      max_por_etapa, max_bonus, max_total, out_path,
-                      detalle_payload, resultados_payload=None,
-                      puntos_repartidos=0, porcentaje_avance=0,
-                      podios_por_etapa=None):
-
-    now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
-    titulo_competencia = html_escape(nombre_competencia)
-    detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
-    resultados_payload = resultados_payload or {"stages": [], "matches": {}}
-    resultados_json = json.dumps(resultados_payload, ensure_ascii=False).replace("</", "<\\/")
-    porcentaje_display = formatear_porcentaje_avance(porcentaje_avance)
-    progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
+def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
+                                  max_bonus, max_total, podios_por_etapa=None,
+                                  titulo=None, ranking_familiar=False):
     podios_por_etapa = podios_por_etapa or {}
-
     headers = ["Pos", "Nombre", "Total"] \
               + [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas] \
               + [NOMBRE_COLUMNA_BONUS]
-
     max_row = ["", "", f"Max={max_total}"] \
               + [f"Max={max_por_etapa[e]}" for e in etapas_ordenadas] \
               + [f"Max={max_bonus}"]
-
-    body_rows = []
-    for pid, pos, nombre, scores, bono, total in participantes:
-        body_rows.append({
-            "pid": pid,
-            "pos": pos,
-            "nombre": nombre,
-            "scores": scores,
-            "bono": bono,
-            "total": total,
-        })
 
     colgroup_html = (
         "<colgroup>"
@@ -1242,9 +1384,12 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         + "</colgroup>"
     )
 
-    def render_header_cell(text, idx):
+    def mostrar(valor):
+        return formatear_puntaje_familiar(valor) if ranking_familiar else str(valor)
+
+    def render_header_cell(texto, idx):
         clase = " class='total'" if idx == 2 else ""
-        return f"<th{clase}>{text}</th>"
+        return f"<th{clase}>{html_escape(texto)}</th>"
 
     def clase_podio_tabla(pos):
         return {
@@ -1254,34 +1399,191 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         }.get(pos, "")
 
     def render_stage_score(pid, etapa, puntaje):
+        valor_visible = mostrar(puntaje)
         podio = podios_por_etapa.get(pid, {}).get(etapa)
         if not podio:
-            return html_escape(puntaje)
-
-        clase = podio["class"]
-        title = html_escape(podio["title"])
-        medal = podio["medal"]
+            return html_escape(valor_visible)
         return (
-            f"<span class='stage-score {clase}' title='{title}'>"
-            f"<span class='stage-score-value'>{html_escape(puntaje)}</span>"
-            f"<span class='stage-medal' aria-hidden='true'>{medal}</span>"
+            f"<span class='stage-score {podio['class']}' "
+            f"title='{html_escape(podio['title'])}'>"
+            f"<span class='stage-score-value'>{html_escape(valor_visible)}</span>"
+            f"<span class='stage-medal' aria-hidden='true'>{podio['medal']}</span>"
             "</span>"
         )
 
-    def render_body_row(row):
-        clase = clase_podio_tabla(row["pos"])
+    body_html = []
+    for pid, pos, nombre, scores, bono, total in filas:
+        clase = clase_podio_tabla(pos)
         row_open = f"<tr class='{clase}'>" if clase else "<tr>"
         cells = [
-            f"<td>{html_escape(row['pos'])}</td>",
-            f"<td class='nombre'>{html_escape(row['nombre'])}</td>",
-            f"<td class='total'>{html_escape(row['total'])}</td>",
+            f"<td>{html_escape(pos)}</td>",
+            f"<td class='nombre'>{html_escape(nombre)}</td>",
+            f"<td class='total'>{html_escape(mostrar(total))}</td>",
         ]
         for etapa in etapas_ordenadas:
             cells.append(
-                f"<td>{render_stage_score(row['pid'], etapa, row['scores'].get(etapa, 0))}</td>"
+                f"<td>{render_stage_score(pid, etapa, scores.get(etapa, 0))}</td>"
             )
-        cells.append(f"<td>{html_escape(row['bono'])}</td>")
-        return row_open + "".join(cells) + "</tr>"
+        cells.append(f"<td>{html_escape(mostrar(bono))}</td>")
+        body_html.append(row_open + "".join(cells) + "</tr>")
+
+    titulo_html = f"<h2 class='ranking-title'>{html_escape(titulo)}</h2>\n" if titulo else ""
+    return f"""{titulo_html}<table class="tabla-posiciones">
+{colgroup_html}
+<thead>
+<tr>
+{''.join(render_header_cell(h, i) for i, h in enumerate(headers))}
+</tr>
+<tr>
+{''.join(render_header_cell(v, i) for i, v in enumerate(max_row))}
+</tr>
+</thead>
+<tbody>
+{''.join(body_html)}
+</tbody>
+</table>"""
+
+
+def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
+                      max_por_etapa, max_bonus, max_total, out_path,
+                      detalle_payload, resultados_payload=None,
+                      puntos_repartidos=0, porcentaje_avance=0,
+                      podios_por_etapa=None, participantes_familiares=None,
+                      podios_familiares=None):
+
+    now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
+    titulo_competencia = html_escape(nombre_competencia)
+    detalle_json = json.dumps(detalle_payload, ensure_ascii=False).replace("</", "<\\/")
+    resultados_payload = resultados_payload or {"stages": [], "matches": {}}
+    resultados_json = json.dumps(resultados_payload, ensure_ascii=False).replace("</", "<\\/")
+    porcentaje_display = formatear_porcentaje_avance(porcentaje_avance)
+    progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
+    podios_por_etapa = podios_por_etapa or {}
+
+    mostrar_ranking_familiar = participantes_familiares is not None
+    tabla_individual_html = render_tabla_posiciones_html(
+        filas=participantes,
+        etapas_ordenadas=etapas_ordenadas,
+        max_por_etapa=max_por_etapa,
+        max_bonus=max_bonus,
+        max_total=max_total,
+        podios_por_etapa=podios_por_etapa,
+        titulo="Tabla individual" if mostrar_ranking_familiar else None,
+    )
+    ranking_toggle_html = ""
+    ranking_familiar_css = ""
+    ranking_toggle_script = ""
+    rankings_html = tabla_individual_html
+
+    if mostrar_ranking_familiar:
+        tabla_familiar_html = render_tabla_posiciones_html(
+            filas=participantes_familiares,
+            etapas_ordenadas=etapas_ordenadas,
+            max_por_etapa=max_por_etapa,
+            max_bonus=max_bonus,
+            max_total=max_total,
+            podios_por_etapa=podios_familiares,
+            titulo="Tabla familiar",
+            ranking_familiar=True,
+        )
+        ranking_toggle_html = """
+<div class="ranking-toggle" role="group" aria-label="Modalidad de la tabla de posiciones">
+    <button type="button" class="ranking-toggle-button is-active"
+            data-ranking-target="individual" aria-pressed="true"
+            aria-controls="ranking-individual">Individual</button>
+    <button type="button" class="ranking-toggle-button"
+            data-ranking-target="familiar" aria-pressed="false"
+            aria-controls="ranking-familiar">Familiar</button>
+</div>
+"""
+        rankings_html = f"""
+<div id="ranking-individual" class="ranking-panel">
+{tabla_individual_html}
+</div>
+<div id="ranking-familiar" class="ranking-panel" hidden>
+{tabla_familiar_html}
+</div>
+"""
+        ranking_familiar_css = """
+.ranking-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 360px);
+    margin: 0 auto 22px;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(7, 11, 23, 0.72);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+.ranking-toggle-button {
+    min-height: 42px;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.ranking-toggle-button:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.07);
+}
+.ranking-toggle-button.is-active {
+    color: #07101f;
+    background: linear-gradient(135deg, #f3b000, #ffdf57);
+    box-shadow: 0 6px 16px rgba(243, 176, 0, 0.25);
+}
+.ranking-toggle-button:focus-visible {
+    outline: 3px solid #8cc8ff;
+    outline-offset: 2px;
+}
+.ranking-title {
+    margin: 0 0 14px;
+    text-align: center;
+    font-size: clamp(20px, 3vw, 26px);
+}
+.ranking-panel[hidden] {
+    display: none;
+}
+@media (max-width: 600px) {
+    .ranking-toggle {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .ranking-toggle-button {
+        min-height: 44px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}
+"""
+        ranking_toggle_script = """
+<script>
+(function () {
+    var buttons = document.querySelectorAll(".ranking-toggle-button");
+    var individual = document.getElementById("ranking-individual");
+    var familiar = document.getElementById("ranking-familiar");
+    if (!buttons.length || !individual || !familiar) return;
+
+    buttons.forEach(function (button) {
+        button.addEventListener("click", function () {
+            var mostrarFamiliar = button.getAttribute("data-ranking-target") === "familiar";
+            individual.hidden = mostrarFamiliar;
+            familiar.hidden = !mostrarFamiliar;
+            buttons.forEach(function (item) {
+                var activo = item === button;
+                item.classList.toggle("is-active", activo);
+                item.setAttribute("aria-pressed", activo ? "true" : "false");
+            });
+        });
+    });
+})();
+</script>
+"""
 
     detalle_script = """
 <script id="resultados-data" type="application/json">__RESULTADOS_JSON__</script>
@@ -2748,6 +3050,8 @@ tbody tr.podio-bronce:hover {{
     }}
 }}
 
+{ranking_familiar_css}
+
 </style>
 </head>
 
@@ -2768,22 +3072,8 @@ tbody tr.podio-bronce:hover {{
     </div>
 </div>
 
-<table class="tabla-posiciones">
-{colgroup_html}
-<thead>
-<tr>
-{''.join(render_header_cell(h, i) for i, h in enumerate(headers))}
-</tr>
-<tr>
-{''.join(render_header_cell(v, i) for i, v in enumerate(max_row))}
-</tr>
-</thead>
-
-<tbody>
-{''.join(render_body_row(row) for row in body_rows)}
-</tbody>
-
-</table>
+{ranking_toggle_html}
+{rankings_html}
 
 <section class="resultados-wrap" id="resultados-section">
 <h2 class="detalle-title">Resultados actualizados del Mundial</h2>
@@ -2943,6 +3233,7 @@ tbody tr.podio-bronce:hover {{
 </div>
 </section>
 
+{ranking_toggle_script}
 {detalle_script}
 </div>
 </body>
@@ -3021,7 +3312,9 @@ a:hover {
         f.write(html)
 
 
-def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcarpeta_salida, calendario_por_etapa=None):
+def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
+                        subcarpeta_salida, calendario_por_etapa=None,
+                        usar_ranking_familiar=False):
     nombre_competencia = str(nombre_competencia).strip()
     titulo_competencia = (
         nombre_competencia
@@ -3260,6 +3553,87 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         etapas_ordenadas=etapas_ordenadas,
         etapas_finalizadas=etapas_finalizadas,
     )
+    participantes_familiares_html = None
+    podios_familiares = None
+
+    if usar_ranking_familiar:
+        try:
+            datos_familias = cargar_mapa_familias(NOMBRES_PARTICIPANTES_PATH)
+            for aviso in datos_familias["avisos"]:
+                print(f"[{nombre_competencia}] Aviso familias: {aviso}")
+
+            ranking_familiar_info = construir_ranking_familiar(
+                participantes=participantes,
+                datos_familias=datos_familias,
+                etapas_ordenadas=etapas_ordenadas,
+            )
+            if ranking_familiar_info["cantidad_familias_excel"] != 7:
+                print(
+                    f"[{nombre_competencia}] Aviso familias: el Excel contiene "
+                    f"{ranking_familiar_info['cantidad_familias_excel']} familias únicas; "
+                    "se esperaban normalmente 7."
+                )
+            for nombre in ranking_familiar_info["participantes_sin_familia"]:
+                print(
+                    f"[{nombre_competencia}] Aviso familias: participante cargado sin "
+                    f"familia asignada: {nombre}"
+                )
+            for nombre in ranking_familiar_info["nombres_excel_sin_coincidencia"]:
+                print(
+                    f"[{nombre_competencia}] Aviso familias: nombre del Excel sin "
+                    f"participante cargado: {nombre}"
+                )
+            for familia in ranking_familiar_info["familias_sin_integrantes"]:
+                print(
+                    f"[{nombre_competencia}] Aviso familias: familia sin integrantes "
+                    f"válidos: {familia}"
+                )
+
+            ranking_familiar = ranking_familiar_info["ranking"]
+            posiciones_familiares = calcular_posiciones_con_empate(ranking_familiar)
+            participantes_familiares_html = [
+                (familia_id, pos, familia, scores, bono, total)
+                for pos, (familia_id, familia, scores, bono, total, errores)
+                in zip(posiciones_familiares, ranking_familiar)
+            ]
+            podios_familiares = calcular_podios_por_etapa(
+                participantes=ranking_familiar,
+                etapas_ordenadas=etapas_ordenadas,
+                etapas_finalizadas=etapas_finalizadas,
+                ranking_familiar=True,
+            )
+
+            print("\n" + "=" * ancho_tabla)
+            print(f"Tabla de posiciones familiar - {titulo_competencia}")
+            print("=" * ancho_tabla)
+            print(
+                "Pos | Familia | Total | Grupos | 16avos | Octavos | "
+                "Cuartos | Semis | Final | Bono Campeón"
+            )
+            print("-" * ancho_tabla)
+            for pos, (familia_id, familia, scores, bono, total, errores) in zip(
+                posiciones_familiares, ranking_familiar
+            ):
+                puntajes = " | ".join(
+                    formatear_puntaje_familiar(scores[e])
+                    for e in etapas_ordenadas
+                )
+                print(
+                    f"{pos} | {familia} | {formatear_puntaje_familiar(total)} | "
+                    f"{puntajes} | {formatear_puntaje_familiar(bono)}"
+                )
+                integrantes = ranking_familiar_info["integrantes"].get(familia_id, [])
+                print(f"{familia}: {', '.join(integrantes)}")
+        except ValueError as e:
+            print(
+                f"[{nombre_competencia}] ERROR en nombres_participantes.xlsx: {e} "
+                "Se generará solamente la tabla individual."
+            )
+        except Exception as e:
+            print(
+                f"[{nombre_competencia}] Aviso: no se pudo leer "
+                f"nombres_participantes.xlsx ({e}). Se generará solamente la tabla individual."
+            )
     etapas_select = [
         {
             "id": e,
@@ -3337,6 +3711,8 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes, subcar
         puntos_repartidos=puntos_repartidos,
         porcentaje_avance=porcentaje_avance,
         podios_por_etapa=podios_por_etapa,
+        participantes_familiares=participantes_familiares_html,
+        podios_familiares=podios_familiares,
     )
     print(f"[{nombre_competencia}] HTML generado: {out_html}")
     return True
@@ -3351,12 +3727,14 @@ def main():
         nombre_carpeta_participantes="Participantes_Familia",
         subcarpeta_salida="familia",
         calendario_por_etapa=calendario_por_etapa,
+        usar_ranking_familiar=True,
     )
     resultados["curso"] = generar_competencia(
         nombre_competencia="Segundos Medios",
         nombre_carpeta_participantes="Participantes_Curso",
         subcarpeta_salida="curso",
         calendario_por_etapa=calendario_por_etapa,
+        usar_ranking_familiar=False,
     )
 
     out_portada = os.path.join(OUTPUT_DIR, "index.html")
