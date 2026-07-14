@@ -1797,7 +1797,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 <div id="pronosticos-tabla-control" class="pronosticos-tabla-control">
     <label for="pronosticos-tabla-selector">Pronósticos mostrados</label>
     <select id="pronosticos-tabla-selector" class="pronosticos-tabla-selector"></select>
-    <small>Afecta solamente la tabla individual.</small>
 </div>
 """
 
@@ -3193,13 +3192,6 @@ body {{
     font-weight: 800;
     letter-spacing: 0.3px;
     text-transform: uppercase;
-}}
-
-.pronosticos-tabla-control small {{
-    display: block;
-    margin-top: 5px;
-    color: rgba(236, 242, 255, 0.58);
-    font-size: 11px;
 }}
 
 .pronosticos-tabla-selector {{
