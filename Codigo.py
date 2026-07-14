@@ -1651,12 +1651,16 @@ def calcular_podios_por_etapa(participantes, etapas_ordenadas, etapas_finalizada
 def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
                                   max_bonus, max_total, podios_por_etapa=None,
                                   titulo=None, ranking_familiar=False,
-                                  mostrar_columna_pronostico=False):
+                                  mostrar_columna_pronostico=False,
+                                  campeones_por_participante=None):
     podios_por_etapa = podios_por_etapa or {}
+    campeones_por_participante = campeones_por_participante or {}
     headers = ["Pos", "Nombre", "Total"]
     max_row = ["", "", f"Max={max_total}"]
     if mostrar_columna_pronostico:
         headers.append("Pronóstico")
+        headers.append("Pronóstico campeón")
+        max_row.append("—")
         max_row.append("—")
     headers += [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas]
     headers.append(NOMBRE_COLUMNA_BONUS)
@@ -1669,6 +1673,7 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
         "<col class='col-nombre'>"
         "<col class='col-total'>"
         + ("<col class='col-pronostico'>" if mostrar_columna_pronostico else "")
+        + ("<col class='col-campeon'>" if mostrar_columna_pronostico else "")
         + "".join("<col class='col-puntaje'>" for _ in etapas_ordenadas)
         + "<col class='col-puntaje'>"
         + "</colgroup>"
@@ -1725,6 +1730,21 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
                 "<td class='pronostico-partido-cell' "
                 f"data-participant-id='{html_escape(pid)}'>Sin pronóstico</td>"
             )
+            campeon = valor_payload(campeones_por_participante.get(pid))
+            if campeon:
+                chip_campeon = (
+                    "<span class='pronostico-chip pronostico-chip-complete "
+                    f"pronostico-campeon-chip' data-country='{html_escape(campeon)}'>"
+                    f"<span>{html_escape(campeon)}</span></span>"
+                )
+            else:
+                chip_campeon = (
+                    "<span class='pronostico-chip pronostico-chip-missing'>"
+                    "<span>Sin pronóstico</span></span>"
+                )
+            cells.append(
+                f"<td class='pronostico-campeon-cell'>{chip_campeon}</td>"
+            )
         for etapa in etapas_ordenadas:
             cells.append(
                 f"<td>{render_stage_score(pid, etapa, scores.get(etapa, 0))}</td>"
@@ -1759,7 +1779,8 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       pronosticos_tabla_payload=None,
                       puntos_repartidos=0, porcentaje_avance=0,
                       podios_por_etapa=None, participantes_familiares=None,
-                      podios_familiares=None):
+                      podios_familiares=None,
+                      campeones_por_participante=None):
 
     now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
     titulo_competencia = html_escape(nombre_competencia)
@@ -1788,6 +1809,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         podios_por_etapa=podios_por_etapa,
         titulo="Tabla individual" if mostrar_ranking_familiar else None,
         mostrar_columna_pronostico=True,
+        campeones_por_participante=campeones_por_participante,
     )
     ranking_toggle_html = ""
     ranking_familiar_css = ""
@@ -1811,6 +1833,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             titulo="Tabla familiar",
             ranking_familiar=True,
             mostrar_columna_pronostico=False,
+            campeones_por_participante=None,
         )
         ranking_toggle_html = """
 <div class="ranking-toggle" role="group" aria-label="Modalidad de la tabla de posiciones">
@@ -2322,7 +2345,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var etapas = payload.stages || [];
     var detalles = payload.details || {};
     var etiquetasPartidos = payload.match_labels || {};
-    var bonusCampeon = payload.bonus_champion || {};
     var MENSAJE_RONDA_NO_COMIENZA = "Ronda aún no comienza.";
 
     var participanteSel = document.getElementById("detalle-participante");
@@ -2342,10 +2364,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var detalle2ResumenResultado = document.getElementById("detalle2-resumen-resultado");
     var detalle2Head = document.getElementById("detalle2-head-row");
     var detalle2Body = document.getElementById("detalle2-body");
-    var bonusResumenEstado = document.getElementById("bonus-resumen-estado");
-    var bonusResumenOficial = document.getElementById("bonus-resumen-oficial");
-    var bonusResumenRespuestas = document.getElementById("bonus-resumen-respuestas");
-    var bonusBody = document.getElementById("bonus-body");
 
     function appendCell(tr, value, className) {
         var td = document.createElement("td");
@@ -2670,56 +2688,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         detalle2Content.hidden = false;
     }
 
-    function renderBonusCampeon() {
-        if (!bonusBody) return;
-
-        var started = !!bonusCampeon.started;
-        var filas = Array.isArray(bonusCampeon.participants) ? bonusCampeon.participants.slice() : [];
-        bonusBody.innerHTML = "";
-
-        if (bonusResumenEstado) {
-            bonusResumenEstado.textContent = started ? "Visible" : "Pendiente";
-        }
-        if (bonusResumenOficial) {
-            bonusResumenOficial.textContent = bonusCampeon.official_champion || "-";
-        }
-        if (bonusResumenRespuestas) {
-            bonusResumenRespuestas.textContent = started ? String(filas.length) : "-";
-        }
-
-        if (!started) {
-            var trPendiente = document.createElement("tr");
-            var tdPendiente = document.createElement("td");
-            tdPendiente.colSpan = 3;
-            tdPendiente.textContent = MENSAJE_RONDA_NO_COMIENZA;
-            trPendiente.appendChild(tdPendiente);
-            bonusBody.appendChild(trPendiente);
-            return;
-        }
-
-        if (!filas.length) {
-            var trVacio = document.createElement("tr");
-            var tdVacio = document.createElement("td");
-            tdVacio.colSpan = 3;
-            tdVacio.textContent = "Sin pronósticos de campeón disponibles.";
-            trVacio.appendChild(tdVacio);
-            bonusBody.appendChild(trVacio);
-            return;
-        }
-
-        filas.sort(function (a, b) {
-            return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
-        });
-
-        filas.forEach(function (fila) {
-            var tr = document.createElement("tr");
-            appendCell(tr, fila.name || "-", "");
-            appendCell(tr, fila.champion || "Sin dato", "");
-            appendCell(tr, String(fila.points || 0), clasePuntos(fila.points || 0));
-            bonusBody.appendChild(tr);
-        });
-    }
-
     llenarSelectores();
     participanteSel.addEventListener("change", renderDetalleParticipante);
     etapaSel.addEventListener("change", renderDetalleParticipante);
@@ -2730,7 +2698,6 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     detalle2PartidoSel.addEventListener("change", renderDetallePartido);
     renderVacioDetalle();
     renderVacioPartido();
-    renderBonusCampeon();
 })();
 </script>
 """.replace("__DETALLE_JSON__", detalle_json).replace("__RESULTADOS_JSON__", resultados_json)
@@ -2743,6 +2710,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var selector = document.getElementById("pronosticos-tabla-selector");
     var headerPartido = document.getElementById("pronostico-header-partido");
     var cells = document.querySelectorAll(".pronostico-partido-cell[data-participant-id]");
+    var championChips = document.querySelectorAll(".pronostico-campeon-chip[data-country]");
     if (!dataNode || !selector || !headerPartido || !cells.length) return;
 
     var payload = {};
@@ -2762,6 +2730,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     }
 
     function seleccionarPartidoInicial(partidos, ahora) {
+        var VENTANA_VISUAL_DESDE_INICIO_MS = 6 * 60 * 60 * 1000;
         var programados = partidos.map(function (match) {
             return { match: match, timestamp: tiempoPartido(match) };
         }).filter(function (item) {
@@ -2775,6 +2744,14 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         });
         if (comenzadosPendientes.length) {
             return comenzadosPendientes[comenzadosPendientes.length - 1].match;
+        }
+
+        var comenzadosRecientes = programados.filter(function (item) {
+            return item.timestamp <= ahora &&
+                   ahora < item.timestamp + VENTANA_VISUAL_DESDE_INICIO_MS;
+        });
+        if (comenzadosRecientes.length) {
+            return comenzadosRecientes[comenzadosRecientes.length - 1].match;
         }
 
         var proximo = programados.find(function (item) {
@@ -2824,6 +2801,16 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
         cell.appendChild(chip);
     }
 
+    function agregarBanderasCampeon() {
+        if (!window.MundialUI || typeof window.MundialUI.crearBandera !== "function") return;
+        championChips.forEach(function (chip) {
+            var bandera = window.MundialUI.crearBandera(
+                chip.getAttribute("data-country") || ""
+            );
+            if (bandera) chip.insertBefore(bandera, chip.firstChild);
+        });
+    }
+
     function renderMatch(match) {
         if (!match) {
             headerPartido.textContent = "Sin partido seleccionado";
@@ -2837,6 +2824,8 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             renderCell(cell, participantPredictions[match.id]);
         });
     }
+
+    agregarBanderasCampeon();
 
     matches.forEach(function (match) {
         var option = document.createElement("option");
@@ -3330,7 +3319,7 @@ tbody tr.podio-bronce .stage-score {{
 }}
 
 .tabla-posiciones.tabla-individual {{
-    min-width: 1050px;
+    min-width: 1200px;
 }}
 
 .tabla-posiciones.tabla-familiar {{
@@ -3353,6 +3342,10 @@ tbody tr.podio-bronce .stage-score {{
     width: 19%;
 }}
 
+.tabla-posiciones.tabla-individual col.col-campeon {{
+    width: 15%;
+}}
+
 .col-pronostico-header span,
 .col-pronostico-header small {{
     display: block;
@@ -3369,6 +3362,11 @@ tbody tr.podio-bronce .stage-score {{
 
 .pronostico-partido-cell {{
     min-width: 165px;
+    white-space: normal !important;
+}}
+
+.pronostico-campeon-cell {{
+    min-width: 145px;
     white-space: normal !important;
 }}
 
@@ -4334,38 +4332,6 @@ tbody tr.podio-bronce:hover {{
 </div>
 </section>
 
-<section class="detalle-wrap detalle-wrap-sec" id="bonus-section">
-<h2 class="detalle-title">Detalle Bono Campeón</h2>
-
-<div class="detalle-summary">
-    <div class="detalle-card">
-        <div class="detalle-label">Estado</div>
-        <div class="detalle-value" id="bonus-resumen-estado">-</div>
-    </div>
-    <div class="detalle-card">
-        <div class="detalle-label">Campeón oficial</div>
-        <div class="detalle-value" id="bonus-resumen-oficial">-</div>
-    </div>
-    <div class="detalle-card">
-        <div class="detalle-label">Pronósticos visibles</div>
-        <div class="detalle-value" id="bonus-resumen-respuestas">-</div>
-    </div>
-</div>
-
-<div class="detalle-table-wrap">
-    <table class="detalle-table">
-        <thead>
-            <tr>
-                <th>Participante</th>
-                <th>Campeón pronosticado</th>
-                <th class="num">Bono</th>
-            </tr>
-        </thead>
-        <tbody id="bonus-body"></tbody>
-    </table>
-</div>
-</section>
-
 {ranking_toggle_script}
 {detalle_script}
 {pronosticos_tabla_script}
@@ -4700,6 +4666,10 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
         {"id": pid, "name": info["nombre"]}
         for pid, info in sorted(datos.items(), key=lambda x: x[1]["nombre"].upper())
     ]
+    campeones_por_participante = {
+        pid: valor_payload(info.get("campeon_pred"))
+        for pid, info in datos.items()
+    }
     etapas_comenzadas = {
         e: etapa_comenzada(pautas_por_etapa, e)
         for e in etapas_ordenadas
@@ -4875,6 +4845,7 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
         podios_por_etapa=podios_por_etapa,
         participantes_familiares=participantes_familiares_html,
         podios_familiares=podios_familiares,
+        campeones_por_participante=campeones_por_participante,
     )
     print(f"[{nombre_competencia}] HTML generado: {out_html}")
     return True
