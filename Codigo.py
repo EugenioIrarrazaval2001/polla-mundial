@@ -354,6 +354,14 @@ def preparar_y_cargar_calendario():
 BONUS_PTS = 5
 NOMBRE_COLUMNA_BONUS = "Bono Campeón"
 CAMPEON_REAL_MANUAL = None
+PREMIOS_POR_POSICION = {
+    1: 60,
+    2: 30,
+    3: 10,
+}
+
+if sum(PREMIOS_POR_POSICION.values()) != 100:
+    raise ValueError("La distribución de premios debe sumar 100%.")
 
 
 # ============================================================
@@ -1183,6 +1191,85 @@ def categoria_modo_tendencia(modo):
     return None
 
 
+def normalizar_equipo_simulacion_final(valor):
+    """Devuelve el finalista canónico admitido por el simulador."""
+    equipo = normalizar_comparacion(normalizar_pasa_eliminatoria(valor))
+    return equipo if equipo in {"ESPANA", "ARGENTINA"} else ""
+
+
+def final_oficial_completa(pautas_por_etapa):
+    """Valida exclusivamente si corresponde retirar el simulador de E06."""
+    pauta_final = pautas_por_etapa.get("E06") or []
+    if not pauta_final:
+        return False
+
+    partido_final = pauta_final[0]
+    if not pauta_partido_finalizado("E06", partido_final):
+        return False
+
+    if isinstance(partido_final, (list, tuple)):
+        ganador = partido_final[0] if len(partido_final) > 0 else None
+        modo = partido_final[1] if len(partido_final) > 1 else None
+    else:
+        ganador = partido_final
+        modo = None
+
+    return bool(
+        normalizar_equipo_simulacion_final(ganador)
+        and categoria_modo_tendencia(modo)
+    )
+
+
+def formatear_monto_clp_python(monto):
+    """Formatea un monto entero para los mensajes informativos de consola."""
+    return "$" + f"{int(monto):,}".replace(",", ".")
+
+
+def construir_premios_payload(titulo_competencia, pozo_premios,
+                               pautas_por_etapa, final_oficial_finalizada=None):
+    """Entrega solo configuración; los premios se calculan desde la tabla visible."""
+    if final_oficial_finalizada is None:
+        final_oficial_finalizada = final_oficial_completa(pautas_por_etapa)
+
+    resultado_oficial = None
+    if final_oficial_finalizada:
+        partido_final = (pautas_por_etapa.get("E06") or [])[0]
+        if isinstance(partido_final, (list, tuple)):
+            ganador_raw = partido_final[0] if len(partido_final) > 0 else None
+            modo_raw = partido_final[1] if len(partido_final) > 1 else None
+        else:
+            ganador_raw = partido_final
+            modo_raw = None
+
+        ganador = normalizar_equipo_simulacion_final(ganador_raw)
+        modo = categoria_modo_tendencia(modo_raw) or ""
+        if ganador and modo:
+            resultado_oficial = {
+                "winner": ganador,
+                "mode": modo,
+                "winner_label": {
+                    "ESPANA": "España",
+                    "ARGENTINA": "Argentina",
+                }[ganador],
+                "mode_label": {
+                    "90": "90'",
+                    "120": "120'",
+                    "PENALES": "penales",
+                }[modo],
+            }
+
+    return {
+        "competition": str(titulo_competencia),
+        "prize_pool": max(0, int(pozo_premios or 0)),
+        "prize_slots": {
+            str(posicion): porcentaje
+            for posicion, porcentaje in PREMIOS_POR_POSICION.items()
+        },
+        "official_final_finished": bool(final_oficial_finalizada),
+        "official_final_result": resultado_oficial,
+    }
+
+
 def leer_pronosticos_eliminatoria_crudos(ruta_excel, etapa):
     cfg = ETAPAS[etapa]
     if cfg["tipo"] != "ELIM":
@@ -1340,6 +1427,59 @@ def construir_pronosticos_tabla_payload(datos, partidos_clave):
     return {
         "matches": partidos_clave,
         "predictions": predictions,
+    }
+
+
+def construir_simulacion_final_payload(datos, filas_participantes):
+    """Construye los datos originales y normalizados para la simulación local."""
+    participantes_payload = {}
+
+    for orden_original, fila in enumerate(filas_participantes):
+        pid, posicion, nombre, scores, bono, total = fila
+        info = datos.get(pid, {})
+        pronosticos_final = info.get("pronosticos_elim", {}).get("E06", [])
+        pronostico_final = (
+            pronosticos_final[0]
+            if pronosticos_final and isinstance(pronosticos_final[0], dict)
+            else {}
+        )
+        ganador = normalizar_equipo_simulacion_final(
+            pronostico_final.get("pasa_raw", "")
+        )
+        modo = categoria_modo_tendencia(
+            pronostico_final.get("modo_raw", "")
+        ) or ""
+        campeon_predicho = normalizar_comparacion(info.get("campeon_pred"))
+        base_sin_final_ni_bono = sum(
+            scores.get(etapa, 0) or 0
+            for etapa in ETAPAS
+            if etapa != "E06"
+        )
+
+        participantes_payload[pid] = {
+            "id": pid,
+            "name": nombre,
+            "sort_name": str(nombre).upper(),
+            "base_without_final_and_bonus": base_sin_final_ni_bono,
+            "original_final_points": scores.get("E06", 0),
+            "original_bonus_points": bono,
+            "original_total": total,
+            "original_position": posicion,
+            "original_order": orden_original,
+            "final_prediction": {
+                "winner": ganador,
+                "mode": modo,
+            },
+            "champion_prediction": campeon_predicho,
+        }
+
+    return {
+        "scoring": {
+            "winner_points": ETAPAS["E06"]["ppp"],
+            "mode_points": 1,
+            "champion_bonus_points": BONUS_PTS,
+        },
+        "participants": participantes_payload,
     }
 
 
@@ -1659,13 +1799,14 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
     max_row = ["", "", f"Max={max_total}"]
     if mostrar_columna_pronostico:
         headers.append("Pronóstico")
-        headers.append("Pronóstico campeón")
+        headers.append("Bono pronóstico campeón")
         max_row.append("—")
-        max_row.append("—")
+        max_row.append(f"Max={max_bonus}")
     headers += [ETIQUETAS_ETAPAS[e] for e in etapas_ordenadas]
-    headers.append(NOMBRE_COLUMNA_BONUS)
     max_row += [f"Max={max_por_etapa[e]}" for e in etapas_ordenadas]
-    max_row.append(f"Max={max_bonus}")
+    if not mostrar_columna_pronostico:
+        headers.append(NOMBRE_COLUMNA_BONUS)
+        max_row.append(f"Max={max_bonus}")
 
     colgroup_html = (
         "<colgroup>"
@@ -1675,7 +1816,7 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
         + ("<col class='col-pronostico'>" if mostrar_columna_pronostico else "")
         + ("<col class='col-campeon'>" if mostrar_columna_pronostico else "")
         + "".join("<col class='col-puntaje'>" for _ in etapas_ordenadas)
-        + "<col class='col-puntaje'>"
+        + ("" if mostrar_columna_pronostico else "<col class='col-puntaje'>")
         + "</colgroup>"
     )
 
@@ -1714,42 +1855,75 @@ def render_tabla_posiciones_html(filas, etapas_ordenadas, max_por_etapa,
         )
 
     body_html = []
-    for pid, pos, nombre, scores, bono, total in filas:
+    for orden_original, (pid, pos, nombre, scores, bono, total) in enumerate(filas):
         clase = clase_podio_tabla(pos)
         atributos = f" data-participant-id='{html_escape(pid)}'"
+        if mostrar_columna_pronostico:
+            atributos += (
+                f" data-participant-name='{html_escape(nombre)}'"
+                f" data-original-order='{orden_original}'"
+            )
         row_open = (
             f"<tr class='{clase}'{atributos}>" if clase else f"<tr{atributos}>"
         )
-        cells = [
-            f"<td>{html_escape(pos)}</td>",
-            f"<td class='nombre'>{html_escape(nombre)}</td>",
-            f"<td class='total'>{html_escape(mostrar(total))}</td>",
-        ]
+        if mostrar_columna_pronostico:
+            cells = [
+                "<td class='simulacion-pos-cell' "
+                f"data-original-value='{html_escape(pos)}'>{html_escape(pos)}</td>",
+                f"<td class='nombre'>{html_escape(nombre)}</td>",
+                "<td class='total simulacion-total-cell' "
+                f"data-original-value='{html_escape(mostrar(total))}'>"
+                f"{html_escape(mostrar(total))}</td>",
+            ]
+        else:
+            cells = [
+                f"<td>{html_escape(pos)}</td>",
+                f"<td class='nombre'>{html_escape(nombre)}</td>",
+                f"<td class='total'>{html_escape(mostrar(total))}</td>",
+            ]
         if mostrar_columna_pronostico:
             cells.append(
                 "<td class='pronostico-partido-cell' "
                 f"data-participant-id='{html_escape(pid)}'>Sin pronóstico</td>"
             )
             campeon = valor_payload(campeones_por_participante.get(pid))
+            bono_visible = html_escape(mostrar(bono))
             if campeon:
                 chip_campeon = (
                     "<span class='pronostico-chip pronostico-chip-complete "
                     f"pronostico-campeon-chip' data-country='{html_escape(campeon)}'>"
-                    f"<span>{html_escape(campeon)}</span></span>"
+                    "<span class='pronostico-campeon-nombre'>"
+                    f"{html_escape(campeon)}</span>"
+                    "<span class='pronostico-campeon-separador' aria-hidden='true'>·</span>"
+                    "<span class='pronostico-campeon-puntos' "
+                    f"data-original-value='{bono_visible}'>"
+                    f"{bono_visible}</span></span>"
                 )
             else:
                 chip_campeon = (
                     "<span class='pronostico-chip pronostico-chip-missing'>"
-                    "<span>Sin pronóstico</span></span>"
+                    "<span class='pronostico-campeon-nombre'>Sin pronóstico</span>"
+                    "<span class='pronostico-campeon-separador' aria-hidden='true'>·</span>"
+                    "<span class='pronostico-campeon-puntos' "
+                    f"data-original-value='{bono_visible}'>"
+                    f"{bono_visible}</span></span>"
                 )
             cells.append(
                 f"<td class='pronostico-campeon-cell'>{chip_campeon}</td>"
             )
         for etapa in etapas_ordenadas:
-            cells.append(
-                f"<td>{render_stage_score(pid, etapa, scores.get(etapa, 0))}</td>"
+            atributos_etapa = (
+                " class='simulacion-final-cell' "
+                f"data-original-value='{html_escape(mostrar(scores.get(etapa, 0)))}'"
+                if mostrar_columna_pronostico and etapa == "E06"
+                else ""
             )
-        cells.append(f"<td>{html_escape(mostrar(bono))}</td>")
+            cells.append(
+                f"<td{atributos_etapa}>"
+                f"{render_stage_score(pid, etapa, scores.get(etapa, 0))}</td>"
+            )
+        if not mostrar_columna_pronostico:
+            cells.append(f"<td>{html_escape(mostrar(bono))}</td>")
         body_html.append(row_open + "".join(cells) + "</tr>")
 
     titulo_html = f"<h2 class='ranking-title'>{html_escape(titulo)}</h2>\n" if titulo else ""
@@ -1778,9 +1952,13 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
                       tendencias_payload=None,
                       pronosticos_tabla_payload=None,
                       puntos_repartidos=0, porcentaje_avance=0,
-                      podios_por_etapa=None, participantes_familiares=None,
-                      podios_familiares=None,
-                      campeones_por_participante=None):
+                       podios_por_etapa=None, participantes_familiares=None,
+                       podios_familiares=None,
+                       campeones_por_participante=None,
+                       mostrar_simulador_final=False,
+                       simulacion_final_payload=None,
+                       pozo_premios=0,
+                       premios_payload=None):
 
     now = datetime.now(ZoneInfo("America/Santiago")).strftime("%Y-%m-%d %H:%M:%S")
     titulo_competencia = html_escape(nombre_competencia)
@@ -1794,6 +1972,28 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     }
     pronosticos_tabla_json = json.dumps(
         pronosticos_tabla_payload, ensure_ascii=False
+    ).replace("</", "<\\/")
+    simulacion_final_json = ""
+    if mostrar_simulador_final:
+        simulacion_final_json = json.dumps(
+            simulacion_final_payload or {"scoring": {}, "participants": {}},
+            ensure_ascii=False,
+        ).replace("</", "<\\/")
+    premios_config = {
+        "competition": str(nombre_competencia),
+        "prize_pool": max(0, int(pozo_premios or 0)),
+        "prize_slots": {
+            str(posicion): porcentaje
+            for posicion, porcentaje in PREMIOS_POR_POSICION.items()
+        },
+        "official_final_finished": not mostrar_simulador_final,
+        "official_final_result": None,
+    }
+    if premios_payload:
+        premios_config.update(premios_payload)
+    premios_config["prize_pool"] = max(0, int(pozo_premios or 0))
+    premios_json = json.dumps(
+        premios_config, ensure_ascii=False
     ).replace("</", "<\\/")
     porcentaje_display = formatear_porcentaje_avance(porcentaje_avance)
     progreso_width = max(0, min(100, float(porcentaje_avance or 0)))
@@ -1820,6 +2020,102 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     <label for="pronosticos-tabla-selector">Pronósticos mostrados</label>
     <select id="pronosticos-tabla-selector" class="pronosticos-tabla-selector"></select>
 </div>
+"""
+    simulacion_final_control_html = ""
+    simulacion_final_data_html = ""
+    if mostrar_simulador_final:
+        simulacion_final_control_html = """
+<section id="simulacion-final-control" class="simulacion-final-control"
+         aria-labelledby="simulacion-final-titulo">
+    <div class="simulacion-final-copy">
+        <h2 id="simulacion-final-titulo">Simular resultado de la final</h2>
+        <p id="simulacion-final-subtitulo">
+            Selecciona un resultado para ver cómo terminaría la tabla
+        </p>
+    </div>
+    <div class="simulacion-final-field">
+        <label for="simulacion-final-selector">Resultado de España vs Argentina</label>
+        <div class="simulacion-final-selector-row">
+            <select id="simulacion-final-selector" class="simulacion-final-selector"
+                    aria-describedby="simulacion-final-subtitulo">
+                <option value="" data-scenario-label="tabla actual, sin simulación">
+                    Tabla actual — sin simulación
+                </option>
+                <option value="ESPANA|90" data-winner="ESPANA" data-mode="90"
+                        data-winner-label="España" data-mode-label="90 minutos"
+                        data-scenario-label="España campeón en 90'">España · 90'</option>
+                <option value="ESPANA|120" data-winner="ESPANA" data-mode="120"
+                        data-winner-label="España" data-mode-label="120 minutos"
+                        data-scenario-label="España campeón en 120'">España · 120'</option>
+                <option value="ESPANA|PENALES" data-winner="ESPANA" data-mode="PENALES"
+                        data-winner-label="España" data-mode-label="penales"
+                        data-scenario-label="España campeón en penales">España · Penales</option>
+                <option value="ARGENTINA|90" data-winner="ARGENTINA" data-mode="90"
+                        data-winner-label="Argentina" data-mode-label="90 minutos"
+                        data-scenario-label="Argentina campeón en 90'">Argentina · 90'</option>
+                <option value="ARGENTINA|120" data-winner="ARGENTINA" data-mode="120"
+                        data-winner-label="Argentina" data-mode-label="120 minutos"
+                        data-scenario-label="Argentina campeón en 120'">Argentina · 120'</option>
+                <option value="ARGENTINA|PENALES" data-winner="ARGENTINA" data-mode="PENALES"
+                        data-winner-label="Argentina" data-mode-label="penales"
+                        data-scenario-label="Argentina campeón en penales">Argentina · Penales</option>
+            </select>
+            <span id="simulacion-final-badge" class="simulacion-final-badge" hidden>
+                Simulación local
+            </span>
+        </div>
+        <p id="simulacion-final-live" class="simulacion-final-live" aria-live="polite"></p>
+    </div>
+</section>
+"""
+        simulacion_final_data_html = (
+            '<script id="simulacion-final-data" type="application/json">'
+            + simulacion_final_json
+            + "</script>"
+        )
+
+    clase_acciones = " tabla-acciones-solo-premios" if not mostrar_simulador_final else ""
+    tabla_acciones_individuales_html = f"""
+<div id="tabla-acciones-individuales"
+     class="tabla-acciones-individuales{clase_acciones}">
+    {simulacion_final_control_html}
+    <button type="button" id="abrir-premios-button" class="premios-button"
+            aria-haspopup="dialog" aria-controls="premios-dialog">
+        <span aria-hidden="true">🏆</span>
+        <span>Ver podio y premios</span>
+    </button>
+</div>
+"""
+    premios_data_html = (
+        '<script id="premios-data" type="application/json">'
+        + premios_json
+        + "</script>"
+    )
+    premios_dialog_html = """
+<dialog id="premios-dialog" class="premios-dialog"
+        aria-labelledby="premios-dialog-title">
+    <div class="premios-dialog-content" role="document">
+        <button type="button" class="premios-dialog-close premios-dialog-close-x"
+                aria-label="Cerrar ventana de premios">×</button>
+        <header class="premios-dialog-header">
+            <p class="premios-dialog-kicker">Premios de la competencia</p>
+            <h2 id="premios-dialog-title">Podio y distribución de premios</h2>
+        </header>
+        <div class="premios-resumen">
+            <div>
+                <span class="premios-resumen-label">Pozo total:</span>
+                <strong id="premios-pozo"></strong>
+            </div>
+        </div>
+        <div id="premios-podio" class="premios-podio"
+             aria-live="polite" aria-atomic="true"></div>
+        <p id="premios-redondeo-nota" class="premios-redondeo-nota" hidden></p>
+        <div class="premios-dialog-footer">
+            <button type="button"
+                    class="premios-dialog-close premios-dialog-close-button">Cerrar</button>
+        </div>
+    </div>
+</dialog>
 """
 
     if mostrar_ranking_familiar:
@@ -1917,6 +2213,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
     var individual = document.getElementById("ranking-individual");
     var familiar = document.getElementById("ranking-familiar");
     var pronosticosControl = document.getElementById("pronosticos-tabla-control");
+    var accionesIndividuales = document.getElementById("tabla-acciones-individuales");
     if (!buttons.length || !individual || !familiar) return;
 
     buttons.forEach(function (button) {
@@ -1925,6 +2222,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
             individual.hidden = mostrarFamiliar;
             familiar.hidden = !mostrarFamiliar;
             if (pronosticosControl) pronosticosControl.hidden = mostrarFamiliar;
+            if (accionesIndividuales) accionesIndividuales.hidden = mostrarFamiliar;
             buttons.forEach(function (item) {
                 var activo = item === button;
                 item.classList.toggle("is-active", activo);
@@ -2851,6 +3149,564 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 </script>
 """.replace("__PRONOSTICOS_TABLA_JSON__", pronosticos_tabla_json)
 
+    simulacion_final_script = ""
+    if mostrar_simulador_final:
+        simulacion_final_script = """
+<script>
+(function () {
+    var dataNode = document.getElementById("simulacion-final-data");
+    var selector = document.getElementById("simulacion-final-selector");
+    var badge = document.getElementById("simulacion-final-badge");
+    var liveRegion = document.getElementById("simulacion-final-live");
+    var table = document.querySelector(".tabla-posiciones.tabla-individual");
+    if (!dataNode || !selector || !badge || !liveRegion || !table) return;
+
+    var tbody = table.querySelector("tbody");
+    if (!tbody) return;
+
+    var payload = {};
+    try {
+        payload = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear simulacion-final-data", e);
+        return;
+    }
+
+    var participantes = payload.participants || {};
+    var scoring = payload.scoring || {};
+    var clasesPodio = ["podio-oro", "podio-plata", "podio-bronce"];
+    var filas = Array.prototype.slice.call(
+        tbody.querySelectorAll("tr[data-participant-id]")
+    );
+    var anclaFinalTbody = (
+        tbody.lastChild
+        && tbody.lastChild.nodeType === 3
+        && !tbody.lastChild.textContent.trim()
+    ) ? tbody.lastChild : null;
+
+    function numeroConfigurado(clave, fallback) {
+        var valor = Number(scoring[clave]);
+        return Number.isFinite(valor) ? valor : fallback;
+    }
+
+    var puntosGanador = numeroConfigurado("winner_points", 3);
+    var puntosModo = numeroConfigurado("mode_points", 1);
+    var puntosBonoCampeon = numeroConfigurado("champion_bonus_points", 5);
+
+    var originales = filas.map(function (row, indice) {
+        var pid = row.getAttribute("data-participant-id") || "";
+        var posCell = row.querySelector(".simulacion-pos-cell");
+        var totalCell = row.querySelector(".simulacion-total-cell");
+        var finalCell = row.querySelector(".simulacion-final-cell");
+        var bonusCell = row.querySelector(".pronostico-campeon-puntos");
+        if (!pid || !posCell || !totalCell || !finalCell || !bonusCell ||
+            !participantes[pid]) return null;
+
+        var ordenAtributo = Number(row.getAttribute("data-original-order"));
+        return {
+            pid: pid,
+            row: row,
+            posCell: posCell,
+            totalCell: totalCell,
+            finalCell: finalCell,
+            bonusCell: bonusCell,
+            classAttribute: row.getAttribute("class"),
+            originalOrder: Number.isFinite(ordenAtributo) ? ordenAtributo : indice,
+            posHtml: posCell.innerHTML,
+            totalHtml: totalCell.innerHTML,
+            finalHtml: finalCell.innerHTML,
+            bonusHtml: bonusCell.innerHTML
+        };
+    }).filter(function (item) { return item !== null; });
+
+    if (!originales.length) return;
+
+    function valorVisible(valor) {
+        return String(Number(valor) || 0);
+    }
+
+    function ordenarFisicamente(items, animar) {
+        var posicionesIniciales = new Map();
+        if (animar) {
+            items.forEach(function (item) {
+                posicionesIniciales.set(item.row, item.row.getBoundingClientRect().top);
+            });
+        }
+
+        var fragment = document.createDocumentFragment();
+        items.forEach(function (item) { fragment.appendChild(item.row); });
+        tbody.insertBefore(fragment, anclaFinalTbody);
+
+        var reducirMovimiento = (
+            window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
+        if (!animar || reducirMovimiento) return;
+
+        items.forEach(function (item) {
+            if (typeof item.row.animate !== "function") return;
+            var posicionInicial = posicionesIniciales.get(item.row);
+            var posicionFinal = item.row.getBoundingClientRect().top;
+            var delta = posicionInicial - posicionFinal;
+            if (!delta) return;
+            item.row.animate(
+                [
+                    { transform: "translateY(" + delta + "px)" },
+                    { transform: "translateY(0)" }
+                ],
+                { duration: 280, easing: "ease-out" }
+            );
+        });
+    }
+
+    function restaurarTabla(animar) {
+        originales.forEach(function (original) {
+            original.posCell.innerHTML = original.posHtml;
+            original.totalCell.innerHTML = original.totalHtml;
+            original.finalCell.innerHTML = original.finalHtml;
+            original.bonusCell.innerHTML = original.bonusHtml;
+            if (original.classAttribute === null) {
+                original.row.removeAttribute("class");
+            } else {
+                original.row.setAttribute("class", original.classAttribute);
+            }
+        });
+
+        var ordenOriginal = originales.slice().sort(function (a, b) {
+            return a.originalOrder - b.originalOrder;
+        });
+        ordenarFisicamente(ordenOriginal, animar);
+        badge.hidden = true;
+        liveRegion.textContent = "Tabla actual restaurada, sin simulación";
+        document.dispatchEvent(new CustomEvent("ranking-individual-actualizado"));
+    }
+
+    function compararNombre(a, b) {
+        var nombreA = String(a.info.sort_name || a.info.name || "");
+        var nombreB = String(b.info.sort_name || b.info.name || "");
+        if (nombreA < nombreB) return -1;
+        if (nombreA > nombreB) return 1;
+        return a.original.originalOrder - b.original.originalOrder;
+    }
+
+    function simular(option) {
+        var ganadorSimulado = option.getAttribute("data-winner") || "";
+        var modoSimulado = option.getAttribute("data-mode") || "";
+        var resultados = originales.map(function (original) {
+            var info = participantes[original.pid] || {};
+            var pronosticoFinal = info.final_prediction || {};
+            var finalSimulada = 0;
+            if (pronosticoFinal.winner === ganadorSimulado) {
+                finalSimulada = puntosGanador;
+                if (pronosticoFinal.mode && pronosticoFinal.mode === modoSimulado) {
+                    finalSimulada += puntosModo;
+                }
+            }
+
+            var bonoSimulado = (
+                info.champion_prediction === ganadorSimulado
+                ? puntosBonoCampeon
+                : 0
+            );
+            var totalSimulado = (
+                Number(info.base_without_final_and_bonus || 0)
+                + finalSimulada
+                + bonoSimulado
+            );
+
+            original.finalCell.textContent = valorVisible(finalSimulada);
+            original.bonusCell.textContent = valorVisible(bonoSimulado);
+            original.totalCell.textContent = valorVisible(totalSimulado);
+            clasesPodio.forEach(function (clase) {
+                original.row.classList.remove(clase);
+            });
+
+            return {
+                original: original,
+                info: info,
+                total: totalSimulado
+            };
+        });
+
+        resultados.sort(function (a, b) {
+            if (b.total !== a.total) return b.total - a.total;
+            return compararNombre(a, b);
+        });
+
+        var posicionAnterior = null;
+        var totalAnterior = null;
+        resultados.forEach(function (resultado, indice) {
+            var posicion = (
+                indice === 0 || resultado.total !== totalAnterior
+                ? indice + 1
+                : posicionAnterior
+            );
+            resultado.original.posCell.textContent = String(posicion);
+            if (posicion === 1) resultado.original.row.classList.add("podio-oro");
+            if (posicion === 2) resultado.original.row.classList.add("podio-plata");
+            if (posicion === 3) resultado.original.row.classList.add("podio-bronce");
+            posicionAnterior = posicion;
+            totalAnterior = resultado.total;
+        });
+
+        ordenarFisicamente(
+            resultados.map(function (resultado) { return resultado.original; }),
+            true
+        );
+        badge.hidden = false;
+        liveRegion.textContent = (
+            "Tabla simulada: "
+            + (option.getAttribute("data-winner-label") || ganadorSimulado)
+            + " campeón en "
+            + (option.getAttribute("data-mode-label") || modoSimulado)
+        );
+        document.dispatchEvent(new CustomEvent("ranking-individual-actualizado"));
+    }
+
+    selector.value = "";
+    selector.addEventListener("change", function () {
+        var option = selector.options[selector.selectedIndex];
+        if (!option || !option.value) {
+            restaurarTabla(true);
+            return;
+        }
+        simular(option);
+    });
+
+    window.addEventListener("pageshow", function (event) {
+        if (!event.persisted) return;
+        selector.value = "";
+        restaurarTabla(false);
+    });
+})();
+</script>
+"""
+
+    premios_script = """
+<script>
+(function () {
+    var dataNode = document.getElementById("premios-data");
+    var openButton = document.getElementById("abrir-premios-button");
+    var dialog = document.getElementById("premios-dialog");
+    var dialogContent = dialog && dialog.querySelector(".premios-dialog-content");
+    var poolNode = document.getElementById("premios-pozo");
+    var podiumNode = document.getElementById("premios-podio");
+    var roundingNote = document.getElementById("premios-redondeo-nota");
+    if (!dataNode || !openButton || !dialog || !dialogContent ||
+        !poolNode || !podiumNode || !roundingNote) return;
+
+    var config = {};
+    try {
+        config = JSON.parse(dataNode.textContent || "{}");
+    } catch (e) {
+        console.error("No pude parsear premios-data", e);
+        return;
+    }
+
+    var prizePool = Math.max(0, Math.round(Number(config.prize_pool) || 0));
+    var prizeSlots = config.prize_slots || {"1": 60, "2": 30, "3": 10};
+    var currencyFormatter = new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0
+    });
+    var percentageFormatter = new Intl.NumberFormat("es-CL", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    });
+
+    function limpiar(node) {
+        while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function compararTexto(a, b) {
+        var textoA = String(a || "").toUpperCase();
+        var textoB = String(b || "").toUpperCase();
+        if (textoA < textoB) return -1;
+        if (textoA > textoB) return 1;
+        return 0;
+    }
+
+    function leerTotal(cell) {
+        if (!cell) return NaN;
+        var texto = String(cell.textContent || "").trim().replace(/\\s/g, "");
+        if (!texto) return NaN;
+        return Number(texto.replace(/\\./g, "").replace(",", "."));
+    }
+
+    function obtenerDistribucionPremiosActual() {
+        var table = document.querySelector(".tabla-posiciones.tabla-individual");
+        var tbody = table && table.querySelector("tbody");
+        if (!tbody) {
+            return {winners: [], roundingAdjusted: false, totalAwarded: 0};
+        }
+
+        var participants = Array.prototype.slice.call(
+            tbody.querySelectorAll("tr[data-participant-id]")
+        ).map(function (row, originalIndex) {
+            var nameCell = row.querySelector(".nombre");
+            var totalCell = row.querySelector(".simulacion-total-cell");
+            var total = leerTotal(totalCell);
+            return {
+                participantId: row.getAttribute("data-participant-id") || "",
+                name: row.getAttribute("data-participant-name") ||
+                      (nameCell ? nameCell.textContent.trim() : ""),
+                total: total,
+                originalIndex: originalIndex
+            };
+        }).filter(function (participant) {
+            return participant.participantId && participant.name &&
+                   Number.isFinite(participant.total);
+        });
+
+        participants.sort(function (a, b) {
+            if (b.total !== a.total) return b.total - a.total;
+            var porNombre = compararTexto(a.name, b.name);
+            if (porNombre) return porNombre;
+            var porId = compararTexto(a.participantId, b.participantId);
+            return porId || a.originalIndex - b.originalIndex;
+        });
+
+        var winners = [];
+        var index = 0;
+        var groupNumber = 0;
+        while (index < participants.length) {
+            var end = index + 1;
+            while (end < participants.length &&
+                   participants[end].total === participants[index].total) {
+                end += 1;
+            }
+
+            var group = participants.slice(index, end);
+            var position = index + 1;
+            var groupPercentage = 0;
+            for (var occupied = position; occupied < position + group.length; occupied += 1) {
+                groupPercentage += Number(prizeSlots[String(occupied)]) || 0;
+            }
+
+            if (groupPercentage > 0) {
+                var individualPercentage = groupPercentage / group.length;
+                var amountNumerator = prizePool * groupPercentage;
+                var amountDenominator = 100 * group.length;
+                var exactAmount = amountNumerator / amountDenominator;
+                var baseAmount = Math.floor(exactAmount);
+                var remainder = amountNumerator % amountDenominator;
+                group.forEach(function (participant) {
+                    winners.push({
+                        participant_id: participant.participantId,
+                        name: participant.name,
+                        position: position,
+                        total: participant.total,
+                        percentage: individualPercentage,
+                        exactAmount: exactAmount,
+                        amount: baseAmount,
+                        remainder: remainder,
+                        denominator: amountDenominator,
+                        tied: group.length > 1,
+                        group: groupNumber,
+                        adjustment: 0
+                    });
+                });
+            }
+
+            groupNumber += 1;
+            index = end;
+        }
+
+        var roundedTotal = winners.reduce(function (sum, winner) {
+            return sum + winner.amount;
+        }, 0);
+        var difference = prizePool - roundedTotal;
+        var initialDifference = difference;
+        if (difference && winners.length) {
+            var adjustmentOrder = winners.slice().sort(function (a, b) {
+                var residuosComparados = (
+                    b.remainder * a.denominator -
+                    a.remainder * b.denominator
+                );
+                if (residuosComparados) {
+                    return residuosComparados;
+                }
+                if (a.group !== b.group) return a.group - b.group;
+                return compararTexto(a.name, b.name) ||
+                       compararTexto(a.participant_id, b.participant_id);
+            });
+            var cursor = 0;
+            while (difference > 0) {
+                var winner = adjustmentOrder[cursor % adjustmentOrder.length];
+                winner.amount += 1;
+                winner.adjustment += 1;
+                difference -= 1;
+                cursor += 1;
+            }
+        }
+
+        winners = winners.filter(function (winner) {
+            return winner.percentage > 0 && winner.amount > 0;
+        });
+
+        return {
+            winners: winners,
+            roundingAdjusted: initialDifference !== 0,
+            adjustmentPesos: Math.abs(initialDifference),
+            totalAwarded: winners.reduce(function (sum, winner) {
+                return sum + winner.amount;
+            }, 0)
+        };
+    }
+
+    function crearTexto(clase, texto) {
+        var node = document.createElement("span");
+        node.className = clase;
+        node.textContent = texto;
+        return node;
+    }
+
+    function crearTarjetaPremio(winner) {
+        var card = document.createElement("article");
+        var podiumClass = winner.position >= 1 && winner.position <= 3
+            ? " premios-card-pos-" + winner.position
+            : "";
+        card.className = "premios-card" + podiumClass;
+
+        var placeText = winner.position + ".º lugar";
+        var heading = document.createElement("div");
+        heading.className = "premios-card-heading";
+        heading.appendChild(crearTexto("premios-card-position", placeText));
+        if (winner.tied) {
+            heading.appendChild(crearTexto("premios-card-tie", "Empate"));
+        }
+        card.appendChild(heading);
+
+        var name = document.createElement("h3");
+        name.textContent = winner.name;
+        card.appendChild(name);
+
+        var total = document.createElement("p");
+        total.className = "premios-card-total";
+        total.textContent = winner.total + (winner.total === 1 ? " punto" : " puntos");
+        card.appendChild(total);
+
+        var values = document.createElement("dl");
+        var percentLabel = document.createElement("dt");
+        percentLabel.textContent = "Porcentaje";
+        var percentValue = document.createElement("dd");
+        percentValue.textContent = percentageFormatter.format(winner.percentage) + "%";
+        var amountLabel = document.createElement("dt");
+        amountLabel.textContent = "Premio";
+        var amountValue = document.createElement("dd");
+        amountValue.className = "premios-card-amount";
+        amountValue.textContent = currencyFormatter.format(winner.amount);
+        values.appendChild(percentLabel);
+        values.appendChild(percentValue);
+        values.appendChild(amountLabel);
+        values.appendChild(amountValue);
+        card.appendChild(values);
+        return card;
+    }
+
+    function actualizarPodioPremios() {
+        var distribution = obtenerDistribucionPremiosActual();
+        poolNode.textContent = currencyFormatter.format(prizePool);
+        limpiar(podiumNode);
+
+        if (!distribution.winners.length) {
+            var empty = document.createElement("p");
+            empty.className = "premios-empty";
+            empty.textContent = "No hay premios disponibles para mostrar.";
+            podiumNode.appendChild(empty);
+        } else {
+            distribution.winners.forEach(function (winner) {
+                podiumNode.appendChild(crearTarjetaPremio(winner));
+            });
+        }
+
+        if (distribution.roundingAdjusted) {
+            roundingNote.textContent = (
+                "Se ajustó el reparto en " + distribution.adjustmentPesos +
+                (distribution.adjustmentPesos === 1 ? " peso" : " pesos") +
+                " para que la suma coincida exactamente con el pozo total."
+            );
+            roundingNote.hidden = false;
+        } else {
+            roundingNote.textContent = "";
+            roundingNote.hidden = true;
+        }
+    }
+
+    function cerrarDialogo() {
+        if (typeof dialog.close === "function") {
+            dialog.close();
+        } else {
+            dialog.removeAttribute("open");
+            document.body.classList.remove("premios-modal-open");
+            openButton.focus();
+        }
+    }
+
+    openButton.addEventListener("click", function () {
+        actualizarPodioPremios();
+        document.body.classList.add("premios-modal-open");
+        if (typeof dialog.showModal === "function") {
+            dialog.showModal();
+        } else {
+            dialog.setAttribute("open", "");
+        }
+        var closeButton = dialog.querySelector(".premios-dialog-close-x");
+        if (closeButton) closeButton.focus();
+    });
+
+    dialog.querySelectorAll(".premios-dialog-close").forEach(function (button) {
+        button.addEventListener("click", cerrarDialogo);
+    });
+
+    dialog.addEventListener("click", function (event) {
+        if (event.target !== dialog) return;
+        var rect = dialogContent.getBoundingClientRect();
+        var outside = event.clientX < rect.left || event.clientX > rect.right ||
+                      event.clientY < rect.top || event.clientY > rect.bottom;
+        if (outside) cerrarDialogo();
+    });
+
+    dialog.addEventListener("close", function () {
+        document.body.classList.remove("premios-modal-open");
+        openButton.focus();
+    });
+
+    dialog.addEventListener("cancel", function (event) {
+        event.preventDefault();
+        cerrarDialogo();
+    });
+
+    dialog.addEventListener("keydown", function (event) {
+        if (event.key !== "Tab") return;
+        var focusable = Array.prototype.slice.call(dialog.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), ' +
+            'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(function (node) {
+            return node.getClientRects().length > 0;
+        });
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+
+    document.addEventListener(
+        "ranking-individual-actualizado",
+        function () {
+            if (dialog.open) actualizarPodioPremios();
+        }
+    );
+})();
+</script>
+"""
+
     tendencias_script = """
 <script id="tendencias-data" type="application/json">__TENDENCIAS_JSON__</script>
 <script>
@@ -3049,6 +3905,7 @@ def render_tabla_html(nombre_competencia, participantes, etapas_ordenadas,
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tabla de posiciones - {titulo_competencia}</title>
 
 <style>
@@ -3193,6 +4050,442 @@ body {{
     background: #111a35;
     color: var(--text);
     font: inherit;
+}}
+
+.tabla-acciones-individuales {{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
+    align-items: stretch;
+    gap: 16px;
+    margin: 0 0 22px;
+}}
+
+.tabla-acciones-individuales[hidden] {{
+    display: none;
+}}
+
+.tabla-acciones-individuales.tabla-acciones-solo-premios {{
+    grid-template-columns: minmax(220px, 250px);
+    justify-content: end;
+}}
+
+.premios-button {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 54px;
+    box-sizing: border-box;
+    padding: 13px 18px;
+    border: 1px solid rgba(255, 236, 148, 0.72);
+    border-radius: 14px;
+    background: linear-gradient(135deg, #d89400, #ffdf57);
+    color: #11182a;
+    font: inherit;
+    font-weight: 900;
+    line-height: 1.25;
+    cursor: pointer;
+    box-shadow: 0 13px 28px rgba(151, 96, 0, 0.30);
+    transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}}
+
+.premios-button:hover {{
+    filter: brightness(1.06);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(151, 96, 0, 0.38);
+}}
+
+.premios-button:focus-visible {{
+    outline: 3px solid #8cc8ff;
+    outline-offset: 3px;
+}}
+
+.simulacion-final-control {{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+    align-items: center;
+    gap: 22px;
+    margin: 0;
+    padding: 20px 22px;
+    border: 1px solid rgba(124, 184, 255, 0.30);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(12, 30, 67, 0.97), rgba(15, 45, 91, 0.92));
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}}
+
+.simulacion-final-control[hidden] {{
+    display: none;
+}}
+
+.simulacion-final-copy h2 {{
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(19px, 2.4vw, 25px);
+    line-height: 1.15;
+}}
+
+.simulacion-final-copy p {{
+    margin: 7px 0 0;
+    color: rgba(229, 239, 255, 0.78);
+    font-size: 14px;
+    line-height: 1.45;
+}}
+
+.simulacion-final-field {{
+    min-width: 0;
+}}
+
+.simulacion-final-field label {{
+    display: block;
+    margin-bottom: 7px;
+    color: rgba(236, 244, 255, 0.84);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}}
+
+.simulacion-final-selector-row {{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}}
+
+.simulacion-final-selector {{
+    flex: 1 1 320px;
+    width: 100%;
+    min-width: 280px;
+    min-height: 46px;
+    box-sizing: border-box;
+    padding: 10px 38px 10px 13px;
+    border: 1px solid rgba(151, 202, 255, 0.38);
+    border-radius: 11px;
+    background: #0b1733;
+    color: #f2f7ff;
+    font: inherit;
+    font-weight: 700;
+}}
+
+.simulacion-final-selector:focus-visible {{
+    outline: 3px solid #8cc8ff;
+    outline-offset: 2px;
+}}
+
+.simulacion-final-badge {{
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 28px;
+    box-sizing: border-box;
+    padding: 5px 9px;
+    border: 1px solid rgba(255, 223, 87, 0.48);
+    border-radius: 999px;
+    color: #fff4bd;
+    background: rgba(243, 176, 0, 0.16);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.25px;
+    white-space: nowrap;
+}}
+
+.simulacion-final-badge[hidden] {{
+    display: none;
+}}
+
+.simulacion-final-live {{
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    border: 0;
+    white-space: nowrap;
+}}
+
+body.premios-modal-open {{
+    overflow: hidden;
+}}
+
+.premios-dialog {{
+    width: min(1080px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 223, 87, 0.42);
+    border-radius: 20px;
+    background: #0b1430;
+    color: var(--text);
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+}}
+
+.premios-dialog::backdrop {{
+    background: rgba(2, 5, 14, 0.82);
+    backdrop-filter: blur(4px);
+}}
+
+.premios-dialog-content {{
+    position: relative;
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    padding: clamp(22px, 4vw, 38px);
+    overflow-y: auto;
+    background:
+        radial-gradient(circle at 82% 0%, rgba(255, 205, 65, 0.13), transparent 34%),
+        linear-gradient(160deg, #111d40, #091127 72%);
+}}
+
+.premios-dialog-close-x {{
+    position: absolute;
+    z-index: 2;
+    top: 14px;
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    background: rgba(3, 8, 21, 0.72);
+    color: #ffffff;
+    font: inherit;
+    font-size: 27px;
+    line-height: 1;
+    cursor: pointer;
+}}
+
+.premios-dialog-close-x:hover {{
+    background: rgba(255, 255, 255, 0.13);
+}}
+
+.premios-dialog-close:focus-visible {{
+    outline: 3px solid #8cc8ff;
+    outline-offset: 2px;
+}}
+
+.premios-dialog-header {{
+    padding-right: 46px;
+}}
+
+.premios-dialog-kicker {{
+    margin: 0 0 7px;
+    color: #ffdf57;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+}}
+
+.premios-dialog-header h2 {{
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(25px, 4vw, 38px);
+    line-height: 1.1;
+}}
+
+.premios-resumen {{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 24px 0 28px;
+}}
+
+.premios-resumen > div {{
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 13px;
+    background: rgba(5, 12, 31, 0.63);
+}}
+
+.premios-resumen-label {{
+    display: block;
+    margin-bottom: 5px;
+    color: rgba(236, 242, 255, 0.68);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.45px;
+    text-transform: uppercase;
+}}
+
+.premios-resumen strong {{
+    display: block;
+    color: #ffffff;
+    font-size: 16px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}}
+
+#premios-pozo {{
+    color: #ffdf57;
+    font-size: 23px;
+}}
+
+.premios-podio {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    align-items: end;
+    gap: 14px;
+}}
+
+.premios-card {{
+    --premios-accent: #8cc8ff;
+    display: flex;
+    min-width: 0;
+    min-height: 170px;
+    box-sizing: border-box;
+    flex-direction: column;
+    padding: 18px;
+    border: 1px solid rgba(140, 200, 255, 0.38);
+    border-color: color-mix(in srgb, var(--premios-accent) 55%, transparent);
+    border-top: 7px solid var(--premios-accent);
+    border-radius: 15px;
+    background: rgba(12, 23, 51, 0.94);
+    color: #f5f8ff;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.27);
+}}
+
+.premios-card-pos-1 {{
+    --premios-accent: #ffcf31;
+    min-height: 260px;
+    background: linear-gradient(155deg, rgba(103, 73, 4, 0.97), rgba(34, 29, 19, 0.98));
+}}
+
+.premios-card-pos-2 {{
+    --premios-accent: #d9e1ef;
+    min-height: 225px;
+    background: linear-gradient(155deg, rgba(76, 88, 111, 0.97), rgba(27, 34, 51, 0.98));
+}}
+
+.premios-card-pos-3 {{
+    --premios-accent: #d68a50;
+    min-height: 195px;
+    background: linear-gradient(155deg, rgba(105, 55, 25, 0.97), rgba(40, 25, 22, 0.98));
+}}
+
+.premios-card-heading {{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+}}
+
+.premios-card-position {{
+    color: var(--premios-accent);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.25px;
+    text-transform: uppercase;
+}}
+
+.premios-card-tie {{
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.24);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}}
+
+.premios-card h3 {{
+    margin: 15px 0 5px;
+    color: #ffffff;
+    font-size: clamp(18px, 2.4vw, 23px);
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+}}
+
+.premios-card-total {{
+    margin: 0 0 17px;
+    color: rgba(242, 247, 255, 0.78);
+    font-size: 14px;
+}}
+
+.premios-card dl {{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 12px;
+    align-items: baseline;
+    margin: auto 0 0;
+}}
+
+.premios-card dt {{
+    color: rgba(236, 242, 255, 0.67);
+    font-size: 12px;
+}}
+
+.premios-card dd {{
+    margin: 0;
+    color: #ffffff;
+    font-weight: 900;
+    text-align: right;
+}}
+
+.premios-card-amount {{
+    color: #ffed9b !important;
+    font-size: 19px;
+}}
+
+.premios-redondeo-nota {{
+    margin: 22px 0 0;
+    padding: 13px 15px;
+    border-radius: 11px;
+    color: rgba(239, 245, 255, 0.83);
+    background: rgba(4, 10, 26, 0.58);
+    font-size: 13px;
+    line-height: 1.5;
+}}
+
+.premios-redondeo-nota {{
+    margin-top: 10px;
+    border: 1px solid rgba(255, 223, 87, 0.28);
+    color: #fff1ad;
+}}
+
+.premios-redondeo-nota[hidden] {{
+    display: none;
+}}
+
+.premios-empty {{
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 24px;
+    border: 1px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 13px;
+    color: var(--muted);
+    text-align: center;
+}}
+
+.premios-dialog-footer {{
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 22px;
+}}
+
+.premios-dialog-close-button {{
+    min-width: 130px;
+    min-height: 44px;
+    padding: 10px 20px;
+    border: 1px solid rgba(140, 200, 255, 0.42);
+    border-radius: 11px;
+    background: #172b58;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+}}
+
+.premios-dialog-close-button:hover {{
+    background: #214079;
 }}
 
 .tabla-posiciones-scroll {{
@@ -3343,7 +4636,7 @@ tbody tr.podio-bronce .stage-score {{
 }}
 
 .tabla-posiciones.tabla-individual col.col-campeon {{
-    width: 15%;
+    width: 18%;
 }}
 
 .col-pronostico-header span,
@@ -3366,7 +4659,7 @@ tbody tr.podio-bronce .stage-score {{
 }}
 
 .pronostico-campeon-cell {{
-    min-width: 145px;
+    min-width: 185px;
     white-space: normal !important;
 }}
 
@@ -3389,6 +4682,34 @@ tbody tr.podio-bronce .stage-score {{
 .pronostico-chip .resultados-flag-img,
 .pronostico-chip .resultados-flag {{
     flex: 0 0 auto;
+}}
+
+.pronostico-campeon-nombre {{
+    min-width: 0;
+}}
+
+.pronostico-campeon-separador {{
+    flex: 0 0 auto;
+    color: rgba(255, 255, 255, 0.72);
+    font-weight: 800;
+}}
+
+.pronostico-campeon-puntos {{
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    box-sizing: border-box;
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgba(3, 10, 27, 0.68);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1;
 }}
 
 .pronostico-chip-complete {{
@@ -4050,6 +5371,21 @@ tbody tr.podio-bronce:hover {{
 }}
 
 @media (max-width: 900px) {{
+    .tabla-acciones-individuales,
+    .tabla-acciones-individuales.tabla-acciones-solo-premios {{
+        grid-template-columns: 1fr;
+        justify-content: stretch;
+    }}
+
+    .premios-button {{
+        width: 100%;
+    }}
+
+    .simulacion-final-control {{
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }}
+
     table {{
         font-size: 13px;
     }}
@@ -4101,6 +5437,66 @@ tbody tr.podio-bronce:hover {{
         flex-basis: auto;
         width: 100%;
         margin-left: 0;
+    }}
+
+    .simulacion-final-control {{
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 18px 16px;
+    }}
+
+    .simulacion-final-selector-row {{
+        align-items: stretch;
+        flex-direction: column;
+    }}
+
+    .simulacion-final-selector {{
+        flex-basis: auto;
+        min-width: 0;
+    }}
+
+    .simulacion-final-badge {{
+        align-self: flex-start;
+    }}
+
+    .premios-dialog {{
+        width: calc(100vw - 16px);
+        max-height: calc(100dvh - 16px);
+        border-radius: 15px;
+    }}
+
+    .premios-dialog-content {{
+        max-height: calc(100dvh - 16px);
+        padding: 22px 15px 18px;
+    }}
+
+    .premios-dialog-header {{
+        padding-right: 43px;
+    }}
+
+    .premios-resumen {{
+        grid-template-columns: 1fr;
+        margin-top: 20px;
+    }}
+
+    .premios-podio {{
+        grid-template-columns: 1fr;
+    }}
+
+    .premios-card-pos-1 {{
+        min-height: 230px;
+    }}
+
+    .premios-card-pos-2 {{
+        min-height: 205px;
+    }}
+
+    .premios-card-pos-3 {{
+        min-height: 180px;
+    }}
+
+    .premios-dialog-close-button {{
+        width: 100%;
     }}
 
     .avance-card {{
@@ -4177,7 +5573,9 @@ tbody tr.podio-bronce:hover {{
 {ranking_toggle_html}
 {pronosticos_control_html}
 </div>
+{tabla_acciones_individuales_html}
 {rankings_html}
+{premios_dialog_html}
 
 <section class="tendencias-wrap" id="tendencias-section">
 <h2 class="detalle-title">Tendencia de pronósticos</h2>
@@ -4335,6 +5733,10 @@ tbody tr.podio-bronce:hover {{
 {ranking_toggle_script}
 {detalle_script}
 {pronosticos_tabla_script}
+{simulacion_final_data_html}
+{simulacion_final_script}
+{premios_data_html}
+{premios_script}
 {tendencias_script}
 </div>
 </body>
@@ -4415,8 +5817,9 @@ a:hover {
 
 def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
                         subcarpeta_salida, calendario_por_etapa=None,
-                        usar_ranking_familiar=False):
+                        usar_ranking_familiar=False, pozo_premios=0):
     nombre_competencia = str(nombre_competencia).strip()
+    pozo_premios = max(0, int(pozo_premios or 0))
     titulo_competencia = (
         nombre_competencia
         if nombre_competencia.lower().startswith("polla ")
@@ -4424,6 +5827,13 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
     )
 
     print(f"\nGenerando competencia: {nombre_competencia}")
+    etiqueta_log_premios = (
+        "Familia" if nombre_competencia.lower() == "familia" else nombre_competencia
+    )
+    print(
+        f"[{etiqueta_log_premios}] Pozo de premios: "
+        f"{formatear_monto_clp_python(pozo_premios)}"
+    )
     datos = {}
 
     # 1) Cargar pautas oficiales desde carpeta Pauta (compartida)
@@ -4662,6 +6072,25 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
     for pos, (pid, nombre, scores, bono, total, errores) in zip(posiciones_participantes, participantes):
         participantes_html.append((pid, pos, nombre, scores, bono, total))
 
+    final_oficial_finalizada = final_oficial_completa(pautas_por_etapa)
+    mostrar_simulador_final = not final_oficial_finalizada
+    simulacion_final_payload = (
+        construir_simulacion_final_payload(datos, participantes_html)
+        if mostrar_simulador_final
+        else None
+    )
+    titulo_premios = (
+        "Polla Familia"
+        if nombre_competencia.lower() == "familia"
+        else titulo_competencia
+    )
+    premios_payload = construir_premios_payload(
+        titulo_competencia=titulo_premios,
+        pozo_premios=pozo_premios,
+        pautas_por_etapa=pautas_por_etapa,
+        final_oficial_finalizada=final_oficial_finalizada,
+    )
+
     participantes_select = [
         {"id": pid, "name": info["nombre"]}
         for pid, info in sorted(datos.items(), key=lambda x: x[1]["nombre"].upper())
@@ -4846,6 +6275,10 @@ def generar_competencia(nombre_competencia, nombre_carpeta_participantes,
         participantes_familiares=participantes_familiares_html,
         podios_familiares=podios_familiares,
         campeones_por_participante=campeones_por_participante,
+        mostrar_simulador_final=mostrar_simulador_final,
+        simulacion_final_payload=simulacion_final_payload,
+        pozo_premios=pozo_premios,
+        premios_payload=premios_payload,
     )
     print(f"[{nombre_competencia}] HTML generado: {out_html}")
     return True
@@ -4861,6 +6294,7 @@ def main():
         subcarpeta_salida="familia",
         calendario_por_etapa=calendario_por_etapa,
         usar_ranking_familiar=True,
+        pozo_premios=75000,
     )
     resultados["curso"] = generar_competencia(
         nombre_competencia="Segundos Medios",
@@ -4868,6 +6302,7 @@ def main():
         subcarpeta_salida="curso",
         calendario_por_etapa=calendario_por_etapa,
         usar_ranking_familiar=False,
+        pozo_premios=84000,
     )
 
     out_portada = os.path.join(OUTPUT_DIR, "index.html")
